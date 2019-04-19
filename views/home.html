@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+</head>
+<body>
+    <br><br>
+    <center>
+        <h1>NOVUS</h1>
+    </center>
+    <br><br><br><br>
+    <div class="row">
+      <div class="col-md-1"></div>
+      <div class="col-md-5">
+          <center>
+              <img id="profile_pic" src="">
+              <br><br>
+              <h4>display name: <span id="display_name"><span></h4>
+              <h4>id: <span id="id"><span></h4>
+              <h4>followers: <span id="followers"><span></h4>
+              <h4>saved songs: <span id="saved_songs"><span></h4>
+              <h4>country: <span id="country"><span></h4>
+              <h4>product: <span id="product"><span></h4>
+              <h4>type: <span id="type"><span></h4>
+          </center>
+      </div>
+      <div class="col-md-5">
+          <center>
+              <i><h3><b>Most recent saved songs:</b></h3></i>
+              <br>
+              <h4 id="song1"></h4>
+              <h4 id="song2"></h4>
+              <h4 id="song3"></h4>
+              <h4 id="song4"></h4>
+              <h4 id="song5"></h4>
+              <h4 id="song6"></h4>
+              <h4 id="song7"></h4>
+              <h4 id="song8"></h4>
+              <h4 id="song9"></h4>
+              <h4 id="song10"></h4>
+          </center>
+      </div>
+      <div class="col-md-3"></div>
+    </div>
+
+    <script>
+        // console.log({{results}});
+        const results = '<%= results %>'.replace(/&#34;/g, '"');
+        const resultsJSON = JSON.parse(results);
+        console.log(resultsJSON);
+
+        document.getElementById('profile_pic').src = resultsJSON['profile_pic'].replace(/amp;/g, '');
+        document.getElementById('display_name').innerHTML = resultsJSON['display_name'];
+        document.getElementById('id').innerHTML = resultsJSON['id'];
+        document.getElementById('followers').innerHTML = resultsJSON['followers'];
+        document.getElementById('saved_songs').innerHTML = resultsJSON['saved_songs'];
+        document.getElementById('country').innerHTML = resultsJSON['country'];
+        document.getElementById('product').innerHTML = resultsJSON['product'];
+        document.getElementById('type').innerHTML = resultsJSON['type'];
+        document.getElementById('song1').innerHTML = resultsJSON['song1'];
+        document.getElementById('song2').innerHTML = resultsJSON['song2'];
+        document.getElementById('song3').innerHTML = resultsJSON['song3'];
+        document.getElementById('song4').innerHTML = resultsJSON['song4'];
+        document.getElementById('song5').innerHTML = resultsJSON['song5'];
+        document.getElementById('song6').innerHTML = resultsJSON['song6'];
+        document.getElementById('song7').innerHTML = resultsJSON['song7'];
+        document.getElementById('song8').innerHTML = resultsJSON['song8'];
+        document.getElementById('song9').innerHTML = resultsJSON['song9'];
+        document.getElementById('song10').innerHTML = resultsJSON['song10'];
+    </script>
+</body>
+</html>
