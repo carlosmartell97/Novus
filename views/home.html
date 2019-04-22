@@ -10,63 +10,88 @@
     </center>
     <br><br><br><br>
     <div class="row">
-      <div class="col-md-1"></div>
-      <div class="col-md-5">
+      <div class="col-md-2">
           <center>
               <img id="profile_pic" src="">
               <br><br>
               <h4>display name: <span id="display_name"><span></h4>
               <h4>id: <span id="id"><span></h4>
               <h4>followers: <span id="followers"><span></h4>
-              <h4>saved songs: <span id="saved_songs"><span></h4>
+              <h4>saved songs: <span id="total_saved_songs"><span></h4>
               <h4>country: <span id="country"><span></h4>
               <h4>product: <span id="product"><span></h4>
               <h4>type: <span id="type"><span></h4>
           </center>
       </div>
-      <div class="col-md-5">
+      <div class="col-md-3">
           <center>
-              <i><h3><b>Most recent saved songs:</b></h3></i>
-              <br>
-              <h4 id="song1"></h4>
-              <h4 id="song2"></h4>
-              <h4 id="song3"></h4>
-              <h4 id="song4"></h4>
-              <h4 id="song5"></h4>
-              <h4 id="song6"></h4>
-              <h4 id="song7"></h4>
-              <h4 id="song8"></h4>
-              <h4 id="song9"></h4>
-              <h4 id="song10"></h4>
+              <i><h3><b>Most recent SAVED songs:</b></h3></i>
+              <div id="savedsongs">
+                <!-- <div style="padding-bottom:15px"><font size="5" id="savedsong1"></font> <br> <font size="3" id="savedartist1"></font></div> -->
+              </div>
           </center>
       </div>
-      <div class="col-md-3"></div>
+      <div class="col-md-3">
+          <center>
+              <i><h3><b>Most recent PLAYED songs:</b></h3></i>
+              <div id="playedsongs">
+                <!-- <div style="padding-bottom:15px"><font size="5" id="playedsong1"></font> <br> <font size="3" id="playedartist1"></font></div> -->
+              </div>
+          </center>
+      </div>
+      <div class="col-md-3">
+          <center>
+              <i><h3><b>Last month's TOP songs:</b></h3></i>
+              <div id="topsongs">
+                <!-- <div style="padding-bottom:15px"><font size="5" id="topsong1"></font> <br> <font size="3" id="topartist1"></font></div> -->
+              </div>
+          </center>
+      </div>
+      <div class="col-md-1"></div>
     </div>
 
     <script>
         // console.log({{results}});
-        const results = '<%= results %>'.replace(/&#34;/g, '"');
+        // console.log(`${results}`);
+        const results = '<%= results %>'
+          .replace(/&#34;/g, '"')
+          .replace(/&#39;/g, "'");
+        // console.log(results);
         const resultsJSON = JSON.parse(results);
         console.log(resultsJSON);
 
-        document.getElementById('profile_pic').src = resultsJSON['profile_pic'].replace(/amp;/g, '');
+        let profile_pic_src = '/default_profile_pic.jpeg';
+        if('profile_pic' in resultsJSON){
+          profile_pic_src = resultsJSON['profile_pic'].replace(/amp;/g, ''); }
+        document.getElementById('profile_pic').src = profile_pic_src;
         document.getElementById('display_name').innerHTML = resultsJSON['display_name'];
         document.getElementById('id').innerHTML = resultsJSON['id'];
         document.getElementById('followers').innerHTML = resultsJSON['followers'];
-        document.getElementById('saved_songs').innerHTML = resultsJSON['saved_songs'];
+        document.getElementById('total_saved_songs').innerHTML = resultsJSON['total_saved_songs'];
         document.getElementById('country').innerHTML = resultsJSON['country'];
         document.getElementById('product').innerHTML = resultsJSON['product'];
         document.getElementById('type').innerHTML = resultsJSON['type'];
-        document.getElementById('song1').innerHTML = resultsJSON['song1'];
-        document.getElementById('song2').innerHTML = resultsJSON['song2'];
-        document.getElementById('song3').innerHTML = resultsJSON['song3'];
-        document.getElementById('song4').innerHTML = resultsJSON['song4'];
-        document.getElementById('song5').innerHTML = resultsJSON['song5'];
-        document.getElementById('song6').innerHTML = resultsJSON['song6'];
-        document.getElementById('song7').innerHTML = resultsJSON['song7'];
-        document.getElementById('song8').innerHTML = resultsJSON['song8'];
-        document.getElementById('song9').innerHTML = resultsJSON['song9'];
-        document.getElementById('song10').innerHTML = resultsJSON['song10'];
+        let savedsongs = document.getElementById('savedsongs');
+        for(let i=0; i<Object.keys(resultsJSON['saved_songs']).length; i++){
+          savedsongs.innerHTML += '<div style="padding-bottom:15px"><font size="5" id="savedsong'+(i+1)+'"></font> <br> <font size="3" id="savedartist'+(i+1)+'"></font></div>';
+          let song_info = resultsJSON['saved_songs'][i].split('*');
+          document.getElementById('savedsong'+(i+1)).innerHTML = song_info[1];
+          document.getElementById('savedartist'+(i+1)).innerHTML = song_info[0];
+        }
+        let playedsongs = document.getElementById('playedsongs');
+        for(let i=0; i<Object.keys(resultsJSON['played_songs']).length; i++){
+          playedsongs.innerHTML += '<div style="padding-bottom:15px"><font size="5" id="playedsong'+(i+1)+'"></font> <br> <font size="3" id="playedartist'+(i+1)+'"></font></div>';
+          let song_info = resultsJSON['played_songs'][i].split('*');
+          document.getElementById('playedsong'+(i+1)).innerHTML = song_info[1];
+          document.getElementById('playedartist'+(i+1)).innerHTML = song_info[0];
+        }
+        let topsongs = document.getElementById('topsongs');
+        for(let i=0; i<Object.keys(resultsJSON['top_songs']).length; i++){
+          topsongs.innerHTML += '<div style="padding-bottom:15px"><font size="5" id="topsong'+(i+1)+'"></font> <br> <font size="3" id="topartist'+(i+1)+'"></font></div>';
+          let song_info = resultsJSON['top_songs'][i].split('*');
+          document.getElementById('topsong'+(i+1)).innerHTML = song_info[1];
+          document.getElementById('topartist'+(i+1)).innerHTML = song_info[0];
+        }
     </script>
 </body>
 </html>

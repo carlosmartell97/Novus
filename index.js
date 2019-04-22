@@ -4,7 +4,9 @@ const express = require('express');
 const url = require('url').URL;
 
 
-const scopes = ['user-read-private', 'user-read-email', 'user-library-read'];
+const scopes = [
+  'user-read-private', 'user-library-read', 'user-read-recently-played',
+  'user-top-read'];
 const state = 'some-state-of-my-choice';
 const spotifyApi = new SpotifyWebApi({
   clientId: process.env.SPOTIFY_CLIENT_ID,
@@ -18,6 +20,7 @@ const app = express();
 app.set('port', process.env.PORT || 3000);
 app.engine('html', require('ejs').renderFile);
 app.set('view engine', 'html');
+app.use(express.static(__dirname + '/views'));
 
 
 app.get('/',function(req, res){
@@ -36,38 +39,66 @@ function print_token(body) {
   console.log('The refresh token is ' + body['refresh_token'] + '\n');
 }
 
+function remove_double_quotes(s){
+  return s.replace(/"/g, '')
+}
+
 function obtain_results(body, success, fail) {
   print_token(body);
 
   results = {}
-  spotifyApi.getMe().then(
-    function(data) {
-      // console.log(data.body);
-      results['country'] = data.body['country'];
-      results['display_name'] = data.body['display_name'];
-      results['followers'] = data.body['followers']['total'];
-      results['id'] = data.body['id'];
-      results['profile_pic'] = data.body['images'][0]['url'];
-      results['product'] = data.body['product'];
-      results['type'] = data.body['type'];
-
-      spotifyApi.getMySavedTracks({limit: 10}).then(function(data) {
-        // console.log(data.body);
-        results['saved_songs'] = data.body['total'];
-        for(let i=0; i<10; i++) {
-            let track = data.body['items'][i]['track'];
-            results['song'+(i+1)] = track['artists'][0]['name'] + ' - ' + track['name'];
-        }
-        success(results);
-      }, function(err) { console.error(err); fail(); });
-    }, function(err) { console.error(err); fail(); }
-  );
+  // get user info
+  spotifyApi.getMe().then(function(data) {
+    // console.log(data.body);
+    results['country'] = data.body['country'];
+    results['display_name'] = data.body['display_name'];
+    results['followers'] = data.body['followers']['total'];
+    results['id'] = data.body['id'];
+    if(data.body['images'].length>0 && 'url' in data.body['images'][0]){
+      results['profile_pic'] = data.body['images'][0]['url']; }
+    results['product'] = data.body['product'];
+    results['type'] = data.body['type'];
+    return spotifyApi.getMySavedTracks({limit:50});
+  }, function(err) { console.error(err); fail(); })
+  // get user's SAVED tracks
+  .then(function(data) {
+    console.log("gathering recently SAVED...");
+    // console.log(data.body['items'][0]);
+    results['total_saved_songs'] = data.body['total'];
+    results['saved_songs'] = [];
+    for(let i=0; i<data.body['items'].length; i++) {
+      let track = data.body['items'][i]['track'];
+      results['saved_songs'].push(remove_double_quotes(track['artists'][0]['name']) + '*' + remove_double_quotes(track['name']));
+    }
+    return spotifyApi.getMyRecentlyPlayedTracks({limit:50});
+  }, function(err) { console.error(err); fail(); })
+  // get user's recently PLAYED tracks
+  .then(function(data) {
+    console.log("gathering recently PLAYED...");
+    // console.log(data.body['items'][0]);
+    results['played_songs'] = [];
+    for(let i=0; i<data.body['items'].length; i++){
+      let track = data.body['items'][i]['track'];
+      results['played_songs'].push(remove_double_quotes(track['artists'][0]['name']) + '*' + remove_double_quotes(track['name']));
+    }
+    return spotifyApi.getMyTopTracks({limit:50, time_range:'short_term'})
+  }, function(err) { console.error(err); fail(); })
+  // get user's TOP songs
+  .then(function(data) {
+    console.log("gathering last month's TOP...");
+    // console.log(data.body['items'][0]);
+    results['top_songs'] = [];
+    for(let i=0; i<data.body['items'].length; i++){
+      let track = data.body['items'][i];
+      results['top_songs'].push(remove_double_quotes(track['artists'][0]['name']) + '*' + remove_double_quotes(track['name']));
+    }
+    success(results);
+  }, function(err) { console.error(err); fail(); });
 }
 
 app.get('/home',function(req, res){
   console.log(req.method + " " + req.route.path);
 
-  // console.log(req.url);
   const current_url = new url('localhost:' + process.env.PORT + req.url);
   const code = current_url.searchParams.get('code');
 
