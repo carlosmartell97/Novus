@@ -8,7 +8,7 @@
     <center>
         <h1>NOVUS</h1>
     </center>
-    <br><br><br><br>
+    <br>
     <div class="row">
       <div class="col-md-2">
           <center>
@@ -21,6 +21,7 @@
               <h4>country: <span id="country"><span></h4>
               <h4>product: <span id="product"><span></h4>
               <h4>type: <span id="type"><span></h4>
+              <img style="max-width:150%; max-height:150%;" id="word_cloud" src="">
           </center>
       </div>
       <div class="col-md-3">
@@ -60,7 +61,7 @@
         const resultsJSON = JSON.parse(results);
         console.log(resultsJSON);
 
-        let profile_pic_src = '/default_profile_pic.jpeg';
+        let profile_pic_src = '/img/default_profile_pic.jpeg';
         if('profile_pic' in resultsJSON){
           profile_pic_src = resultsJSON['profile_pic'].replace(/amp;/g, ''); }
         document.getElementById('profile_pic').src = profile_pic_src;
@@ -92,6 +93,8 @@
           document.getElementById('topsong'+(i+1)).innerHTML = song_info[1];
           document.getElementById('topartist'+(i+1)).innerHTML = song_info[0];
         }
+        if('word_cloud_src' in resultsJSON){
+          document.getElementById('word_cloud').src = resultsJSON['word_cloud_src'].replace(/amp;/g, ''); }
     </script>
 </body>
 </html>

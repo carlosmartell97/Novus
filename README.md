@@ -4,6 +4,7 @@ Personalized music recommendations.
 ## Install
 ```
 npm install
+pip install -r requirements.txt
 ```
 
 ## Usage
@@ -16,5 +17,10 @@ PORT=your-port
 ```
 Then...
 ```
+python server.py
+```
+Leave that running. Now, in another terminal...
+```
 npm start
 ```
+And finally, site is now running at http://localhost:your-port
