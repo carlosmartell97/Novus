@@ -22,6 +22,11 @@
               <h4>product: <span id="product"><span></h4>
               <h4>type: <span id="type"><span></h4>
               <img style="max-width:150%; max-height:150%;" id="word_cloud" src="">
+              <h4 id="top_genres">Top Genres:</h4>
+              <div id="top_genres">
+                <font size="5"></font>
+                <!-- <font size="3"></font> -->
+              </div>
           </center>
       </div>
       <div class="col-md-3">
@@ -95,6 +100,10 @@
         }
         if('word_cloud_src' in resultsJSON){
           document.getElementById('word_cloud').src = resultsJSON['word_cloud_src'].replace(/amp;/g, ''); }
+        let top_genres = document.getElementById('top_genres');
+        for(let i=0; i<Object.keys(resultsJSON['top_genres']).length; i++){
+          top_genres.innerHTML += '<br><font size="3">'+resultsJSON['top_genres'][i]+'</font>';
+        }
     </script>
 </body>
 </html>
