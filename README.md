@@ -1,9 +1,6 @@
 # Novus
 Personalized music recommendations.
 
-## User Guide
-https://docs.google.com/document/d/1EO76c7XOyqi8w4lr9s9Od6gZDPFmanHWzKvHjmsQWNc
-
 ## Install
 ```
 npm install
