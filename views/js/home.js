@@ -24,6 +24,8 @@ function add_song_HTML(prefix){
   }
 }
 
+window.history.pushState('home', 'NOVUS', '/');
+
 const resultsJSON = JSON.parse(results);
 console.log(resultsJSON);
 const access_token = resultsJSON['access_token'];
@@ -60,6 +62,9 @@ add_song_HTML("top_");
 if('word_cloud_src' in resultsJSON){
   document.getElementById('word_cloud').src = resultsJSON['word_cloud_src'].replace(/amp;/g, ''); }
 let top_genres = document.getElementById('top_genres');
-for(let i=0; i<Object.keys(resultsJSON['top_genres']).length; i++){
-  top_genres.innerHTML += '<br><font size="3">'+resultsJSON['top_genres'][i]+'</font>';
+if(Object.keys(resultsJSON['top_genres']).length > 0){
+  top_genres.innerHTML += resultsJSON['top_genres'][0];
+  for(let i=1; i<20; i++){
+    top_genres.innerHTML += ', '+resultsJSON['top_genres'][i];
+  }
 }
