@@ -2,6 +2,7 @@
 <html>
 <head>
     <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+    <link rel="stylesheet" href="css/home.css">
 </head>
 <body>
     <br><br>
@@ -30,80 +31,34 @@
           </center>
       </div>
       <div class="col-md-3">
-          <center>
-              <i><h3><b>Most recent SAVED songs:</b></h3></i>
-              <div id="savedsongs">
-                <!-- <div style="padding-bottom:15px"><font size="5" id="savedsong1"></font> <br> <font size="3" id="savedartist1"></font></div> -->
-              </div>
-          </center>
+          <i><h3><b>Most recent SAVED songs:</b></h3></i>
+          <div id="saved_songs">
+          </div>
       </div>
       <div class="col-md-3">
-          <center>
               <i><h3><b>Most recent PLAYED songs:</b></h3></i>
-              <div id="playedsongs">
-                <!-- <div style="padding-bottom:15px"><font size="5" id="playedsong1"></font> <br> <font size="3" id="playedartist1"></font></div> -->
+              <div id="played_songs">
               </div>
-          </center>
       </div>
       <div class="col-md-3">
-          <center>
               <i><h3><b>Last month's TOP songs:</b></h3></i>
-              <div id="topsongs">
-                <!-- <div style="padding-bottom:15px"><font size="5" id="topsong1"></font> <br> <font size="3" id="topartist1"></font></div> -->
+              <div id="top_songs">
               </div>
-          </center>
       </div>
       <div class="col-md-1"></div>
     </div>
 
     <script>
-        // console.log({{results}});
-        // console.log(`${results}`);
-        const results = '<%= results %>'
-          .replace(/&#34;/g, '"')
-          .replace(/&#39;/g, "'");
-        // console.log(results);
-        const resultsJSON = JSON.parse(results);
-        console.log(resultsJSON);
+      const results = '<%= results %>'
+        .replace(/&#34;/g, '"')
+        .replace(/&#39;/g, "'");
 
-        let profile_pic_src = '/img/default_profile_pic.jpeg';
-        if('profile_pic' in resultsJSON){
-          profile_pic_src = resultsJSON['profile_pic'].replace(/amp;/g, ''); }
-        document.getElementById('profile_pic').src = profile_pic_src;
-        document.getElementById('display_name').innerHTML = resultsJSON['display_name'];
-        document.getElementById('id').innerHTML = resultsJSON['id'];
-        document.getElementById('followers').innerHTML = resultsJSON['followers'];
-        document.getElementById('total_saved_songs').innerHTML = resultsJSON['total_saved_songs'];
-        document.getElementById('country').innerHTML = resultsJSON['country'];
-        document.getElementById('product').innerHTML = resultsJSON['product'];
-        document.getElementById('type').innerHTML = resultsJSON['type'];
-        let savedsongs = document.getElementById('savedsongs');
-        for(let i=0; i<Object.keys(resultsJSON['saved_songs']).length; i++){
-          savedsongs.innerHTML += '<div style="padding-bottom:15px"><font size="5" id="savedsong'+(i+1)+'"></font> <br> <font size="3" id="savedartist'+(i+1)+'"></font></div>';
-          let song_info = resultsJSON['saved_songs'][i].split('*');
-          document.getElementById('savedsong'+(i+1)).innerHTML = song_info[1];
-          document.getElementById('savedartist'+(i+1)).innerHTML = song_info[0];
-        }
-        let playedsongs = document.getElementById('playedsongs');
-        for(let i=0; i<Object.keys(resultsJSON['played_songs']).length; i++){
-          playedsongs.innerHTML += '<div style="padding-bottom:15px"><font size="5" id="playedsong'+(i+1)+'"></font> <br> <font size="3" id="playedartist'+(i+1)+'"></font></div>';
-          let song_info = resultsJSON['played_songs'][i].split('*');
-          document.getElementById('playedsong'+(i+1)).innerHTML = song_info[1];
-          document.getElementById('playedartist'+(i+1)).innerHTML = song_info[0];
-        }
-        let topsongs = document.getElementById('topsongs');
-        for(let i=0; i<Object.keys(resultsJSON['top_songs']).length; i++){
-          topsongs.innerHTML += '<div style="padding-bottom:15px"><font size="5" id="topsong'+(i+1)+'"></font> <br> <font size="3" id="topartist'+(i+1)+'"></font></div>';
-          let song_info = resultsJSON['top_songs'][i].split('*');
-          document.getElementById('topsong'+(i+1)).innerHTML = song_info[1];
-          document.getElementById('topartist'+(i+1)).innerHTML = song_info[0];
-        }
-        if('word_cloud_src' in resultsJSON){
-          document.getElementById('word_cloud').src = resultsJSON['word_cloud_src'].replace(/amp;/g, ''); }
-        let top_genres = document.getElementById('top_genres');
-        for(let i=0; i<Object.keys(resultsJSON['top_genres']).length; i++){
-          top_genres.innerHTML += '<br><font size="3">'+resultsJSON['top_genres'][i]+'</font>';
-        }
+      // console.log({{results}});
+      // console.log(`${results}`);
+      // console.log(results);
     </script>
+    <script src="js/home.js"></script>
+    <script src="https://sdk.scdn.co/spotify-player.js"></script>
+    <script src="js/playback.js"></script>
 </body>
 </html>

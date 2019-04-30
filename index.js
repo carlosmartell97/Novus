@@ -6,7 +6,8 @@ const rp = require('request-promise');
 
 const scopes = [
   'user-read-private', 'user-library-read', 'user-read-recently-played',
-  'user-top-read'];
+  'user-top-read', 'streaming', 'user-read-birthdate', 'user-read-email',
+  'user-read-playback-state'];
 const state = 'some-state-of-my-choice';
 const spotifyApi = new SpotifyWebApi({
   clientId: process.env.SPOTIFY_CLIENT_ID,
@@ -76,12 +77,13 @@ let top_songs_features = [];
     mode 3 -> recommended_top_genres_tracks_features
     mode 4 -> recommended_top_tracks_features
 */
-function update_features(mode, features, song_info){
+function update_features(mode, features, songs_info, songs_ID){
   for(let i=0; i<features.length; i++){
-    let song_info_split = song_info[i].split('*');
+    let song_info_split = songs_info[i].split('*');
     let new_features = {
       'artist': song_info_split[0],
       'name': song_info_split[1],
+      'id': songs_ID[i],
       'danceability': features[i]['danceability'],
       'energy': features[i]['energy'],
       'key': features[i]['loudness'],
@@ -115,13 +117,13 @@ function obtain_word_cloud(results, success, fail){
   console.log("obtaining word cloud for GENRES...");
   // console.log(genres_count);
 
-  let display_name = results['display_name'];
   var options = {
     method: 'POST',
     uri: 'http://localhost:8080/wordcloud',
     body: {
       'genres_count': genres_count,
-      'display_name':display_name,
+      'display_name': results['display_name'],
+      'id': results['id'],
       'saved_songs_features': saved_songs_features,
       'played_songs_features': played_songs_features,
       'top_songs_features': top_songs_features,
@@ -181,7 +183,12 @@ function obtain_results(body, success, fail) {
     for(let i=0; i<data.body['items'].length; i++) {
       let track = data.body['items'][i]['track'];
       let artist = track['artists'][0];
-      results['saved_songs'].push(artist_with_song(artist['name'], track['name']));
+      results['saved_songs'].push({
+        'song_info': artist_with_song(artist['name'], track['name']),
+        'track_id': track['id'],
+        'album_image_src': track['album']['images'][0]['url'],
+        'track_url': track['external_urls']['spotify']
+      });
       saved_songs_ID.push(track['id']);
       saved_artists_ID.push(artist['id']);
       saved_songs_info.push(artist_with_song(artist['name'], track['name']));
@@ -197,7 +204,12 @@ function obtain_results(body, success, fail) {
     for(let i=0; i<data.body['items'].length; i++){
       let track = data.body['items'][i]['track'];
       let artist = track['artists'][0];
-      results['played_songs'].push(artist_with_song(artist['name'], track['name']));
+      results['played_songs'].push({
+        'song_info': artist_with_song(artist['name'], track['name']),
+        'track_id': track['id'],
+        'album_image_src': track['album']['images'][0]['url'],
+        'track_url': track['external_urls']['spotify']
+      });
       played_songs_ID.push(track['id']);
       played_artists_ID.push(artist['id']);
       played_songs_info.push(artist_with_song(artist['name'], track['name']));
@@ -213,7 +225,12 @@ function obtain_results(body, success, fail) {
     for(let i=0; i<data.body['items'].length; i++){
       let track = data.body['items'][i];
       let artist = track['artists'][0];
-      results['top_songs'].push(artist_with_song(artist['name'], track['name']));
+      results['top_songs'].push({
+        'song_info': artist_with_song(artist['name'], track['name']),
+        'track_id': track['id'],
+        'album_image_src': track['album']['images'][0]['url'],
+        'track_url': track['external_urls']['spotify']
+      });
       top_songs_ID.push(track['id']);
       top_artists_ID.push(artist['id']);
       top_songs_info.push(artist_with_song(artist['name'], track['name']));
@@ -227,7 +244,7 @@ function obtain_results(body, success, fail) {
     let features = data.body['audio_features'];
     // console.log(saved_songs_info[0]);
     // console.log(features[0]);
-    update_features(0, features, saved_songs_info);
+    update_features(0, features, saved_songs_info, saved_songs_ID);
     return spotifyApi.getAudioFeaturesForTracks(played_songs_ID);
   }, function(err) { console.error(err); fail(); })
 
@@ -237,7 +254,7 @@ function obtain_results(body, success, fail) {
     let features = data.body['audio_features'];
     // console.log(played_songs_info[0]);
     // console.log(features[0]);
-    update_features(1, features, played_songs_info);
+    update_features(1, features, played_songs_info, played_songs_ID);
     return spotifyApi.getAudioFeaturesForTracks(top_songs_ID);
   }, function(err) { console.error(err); fail(); })
 
@@ -247,7 +264,7 @@ function obtain_results(body, success, fail) {
     let features = data.body['audio_features'];
     // console.log(top_songs_info[0]);
     // console.log(features[0]);
-    update_features(2, features, top_songs_info);
+    update_features(2, features, top_songs_info, top_songs_ID);
     return spotifyApi.getArtists(saved_artists_ID);
   }, function(err) { console.error(err); fail(); })
 
@@ -299,7 +316,7 @@ function obtain_results(body, success, fail) {
       }
     }
     console.log("top_genres_available: "+top_genres_available);
-    return spotifyApi.getRecommendations({ limit:100, seed_genres:top_genres_available, seed_tracks:[], seed_artists:[] });
+    return spotifyApi.getRecommendations({ limit:80, seed_genres:top_genres_available, seed_tracks:[], seed_artists:[] });
   }, function(err) { console.error(err); fail(); })
 
   // get RECOMMENDATIONS with top genres
@@ -313,7 +330,7 @@ function obtain_results(body, success, fail) {
     }
 
     let top_tracks = top_songs_ID.slice(0, maximum_seeds_allowed);
-    return spotifyApi.getRecommendations({ limit:100, seed_genres:[], seed_tracks:top_tracks, seed_artists:[] });
+    return spotifyApi.getRecommendations({ limit:80, seed_genres:[], seed_tracks:top_tracks, seed_artists:[] });
   }, function(err) { console.error(err); fail(); })
 
   // get RECOMMENDATIONS with TOP tracks
@@ -333,7 +350,7 @@ function obtain_results(body, success, fail) {
     console.log("gathering FEATURES for RECOMMENDED top GENRES tracks...");
     let features = data.body['audio_features'];
     // console.log(features[0]);
-    update_features(3, features, recommended_top_genres_tracks_info);
+    update_features(3, features, recommended_top_genres_tracks_info, recommended_top_genres_tracks_ID);
     return spotifyApi.getAudioFeaturesForTracks(recommended_top_tracks_ID);
   }, function(err) { console.error(err); fail(); })
 
@@ -342,7 +359,20 @@ function obtain_results(body, success, fail) {
     console.log("gathering FEATURES for RECOMMENDED top TRACKS...");
     let features = data.body['audio_features'];
     // console.log(features[0]);
-    update_features(4, features, recommended_top_tracks_info);
+    update_features(4, features, recommended_top_tracks_info, recommended_top_tracks_ID);
+    return spotifyApi.getMyDevices();
+  }, function(err) { console.error(err); fail(); })
+
+  // get user's connected DEVICES
+  .then(function(data){
+    console.log("gathering connected DEVICES...");
+    // console.log(data.body['devices']);
+    let devices = data.body['devices'];
+    for(let i=0; i<devices.length; i++){
+      if(devices[i]['is_active']){
+        results['device_id'] = devices[i]['id'];
+      }
+    }
 
     // obtain word cloud for GENRES
     obtain_word_cloud(results, function(){
@@ -368,6 +398,7 @@ app.get('/home',function(req, res){
 
       obtain_results(data.body,
         function(results){
+          results['access_token'] = data.body['access_token'];
           res.render('home.html', { results:JSON.stringify(results) });
         }, function(){ res.render('error.html'); });
     },
@@ -382,6 +413,7 @@ app.get('/home',function(req, res){
 
           obtain_results(data.body,
             function(results){
+              results['access_token'] = data.body['access_token'];
               res.render('home.html', { results:JSON.stringify(results) });
             }, function(){ res.render('error.html'); });
         }, function(err) {

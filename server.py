@@ -30,12 +30,13 @@ def wordcloud():
 		data = request.get_json()
 		genres_count = data['genres_count']
 		display_name = data['display_name']
+		id = data['id']
 		saved_songs_features = data['saved_songs_features']
 		played_songs_features = data['played_songs_features']
 		top_songs_features = data['top_songs_features']
 		recommended_top_genres_tracks_features = data['recommended_top_genres_tracks_features']
 		recommended_top_tracks_features = data['recommended_top_tracks_features']
-		filename = "img/" + display_name + "_word_cloud.png"
+		filename = "img/wordcloud/%s_%s_word_cloud.png" % (display_name, id)
 		print('generating word cloud for %s...' % display_name)
 
 		# print(genres_count)
@@ -68,5 +69,6 @@ def wordcloud():
 
 if __name__ == "__main__":
 	ensure_dir('csv/')
+	ensure_dir('views/img/wordcloud/')
 	print("starting...")
 	app.run(port=8080)
