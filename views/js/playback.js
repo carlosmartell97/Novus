@@ -18,7 +18,7 @@ function play_song(device_id, track_id){
           'Authorization': `Bearer ${access_token}`
         },
       });
-      console.log('now playing');
+      // console.log('now playing');
     // });
   };
 

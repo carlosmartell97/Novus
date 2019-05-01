@@ -24,16 +24,6 @@ app.set('view engine', 'html');
 app.use(express.static(__dirname + '/views'));
 
 
-app.get('/',function(req, res){
-  console.log(req.method + " " + req.route.path);
-  res.render('index.html');
-});
-
-app.post('/',function(req, res){
-  console.log(req.method + " " + req.route.path);
-  res.redirect(authorizeURL);
-});
-
 function print_token(body) {
   console.log('\nThe access token is ' + body['access_token'] + '\n');
   console.log('It expires in ' + body['expires_in'] + '\n');
@@ -70,6 +60,12 @@ let top_songs_info = [];
 let saved_songs_features = [];
 let played_songs_features = [];
 let top_songs_features = [];
+
+let recommended_top_genres_tracks_album_src = [];
+let recommended_top_tracks_album_src = [];
+
+let recommended_top_genres_tracks_url = [];
+let recommended_top_tracks_url = [];
 /*
     mode 0 -> saved_songs_features
     mode 1 -> played_songs_features
@@ -77,13 +73,12 @@ let top_songs_features = [];
     mode 3 -> recommended_top_genres_tracks_features
     mode 4 -> recommended_top_tracks_features
 */
-function update_features(mode, features, songs_info, songs_ID){
+function update_features(mode, features, songs_info, songs_ID, songs_album_src){
   for(let i=0; i<features.length; i++){
     let song_info_split = songs_info[i].split('*');
     let new_features = {
-      'artist': song_info_split[0],
-      'name': song_info_split[1],
-      'id': songs_ID[i],
+      'song_info': artist_with_song(song_info_split[0], song_info_split[1]),
+      'track_id': songs_ID[i],
       'danceability': features[i]['danceability'],
       'energy': features[i]['energy'],
       'key': features[i]['loudness'],
@@ -95,13 +90,16 @@ function update_features(mode, features, songs_info, songs_ID){
       'liveness': features[i]['liveness'],
       'valence': features[i]['valence'],
       'tempo': features[i]['tempo'],
-      'duration_ms': features[i]['duration_ms']
     };
     if(mode==0){ saved_songs_features.push(new_features); }
     else if(mode==1){ played_songs_features.push(new_features); }
     else if(mode==2){ top_songs_features.push(new_features); }
-    else if(mode==3){ recommended_top_genres_tracks_features.push(new_features); }
-    else if(mode==4){ recommended_top_tracks_features.push(new_features); }
+    else if(mode==3){
+      new_features['album_image_src'] = songs_album_src[i];
+      recommended_top_genres_tracks_features.push(new_features); }
+    else if(mode==4){
+      new_features['album_image_src'] = songs_album_src[i];
+      recommended_top_tracks_features.push(new_features); }
   }
 }
 
@@ -119,11 +117,11 @@ function obtain_word_cloud(results, success, fail){
 
   var options = {
     method: 'POST',
-    uri: 'http://localhost:8080/wordcloud',
+    uri: 'http://localhost:8080/wordcloud_and_recommend',
     body: {
       'genres_count': genres_count,
       'display_name': results['display_name'],
-      'id': results['id'],
+      'track_id': results['id'],
       'saved_songs_features': saved_songs_features,
       'played_songs_features': played_songs_features,
       'top_songs_features': top_songs_features,
@@ -134,11 +132,15 @@ function obtain_word_cloud(results, success, fail){
   };
 
   rp(options)
-  .then(function (word_cloud_src) {
+  .then(function (response) {
+    const word_cloud_src = response['word_cloud_src'];
+    const recommendations = response['top_recommendations'];
     // console.log("word_cloud_src:" + word_cloud_src);
-    if (word_cloud_src == null){ fail(); }
+    // console.log("recommendations:" + recommendations);
+    if (reponse == null){ fail(); }
     else {
       results['word_cloud_src'] = word_cloud_src;
+      results['recommended_songs'] = recommendations;
       success(results);
     }
   })
@@ -244,7 +246,7 @@ function obtain_results(body, success, fail) {
     let features = data.body['audio_features'];
     // console.log(saved_songs_info[0]);
     // console.log(features[0]);
-    update_features(0, features, saved_songs_info, saved_songs_ID);
+    update_features(0, features, saved_songs_info, saved_songs_ID, null, null);
     return spotifyApi.getAudioFeaturesForTracks(played_songs_ID);
   }, function(err) { console.error(err); fail(); })
 
@@ -254,7 +256,7 @@ function obtain_results(body, success, fail) {
     let features = data.body['audio_features'];
     // console.log(played_songs_info[0]);
     // console.log(features[0]);
-    update_features(1, features, played_songs_info, played_songs_ID);
+    update_features(1, features, played_songs_info, played_songs_ID, null, null);
     return spotifyApi.getAudioFeaturesForTracks(top_songs_ID);
   }, function(err) { console.error(err); fail(); })
 
@@ -264,7 +266,7 @@ function obtain_results(body, success, fail) {
     let features = data.body['audio_features'];
     // console.log(top_songs_info[0]);
     // console.log(features[0]);
-    update_features(2, features, top_songs_info, top_songs_ID);
+    update_features(2, features, top_songs_info, top_songs_ID, null, null);
     return spotifyApi.getArtists(saved_artists_ID);
   }, function(err) { console.error(err); fail(); })
 
@@ -327,6 +329,8 @@ function obtain_results(body, success, fail) {
       let track = data.body['tracks'][i];
       recommended_top_genres_tracks_ID.push(track['id']);
       recommended_top_genres_tracks_info.push(artist_with_song(track['artists'][0]['name'], track['name']));
+      recommended_top_genres_tracks_album_src.push(track['album']['images'][0]['url']);
+      recommended_top_genres_tracks_url.push(track['external_urls']['spotify']);
     }
 
     let top_tracks = top_songs_ID.slice(0, maximum_seeds_allowed);
@@ -341,6 +345,8 @@ function obtain_results(body, success, fail) {
       let track = data.body['tracks'][i];
       recommended_top_tracks_ID.push(track['id']);
       recommended_top_tracks_info.push(artist_with_song(track['artists'][0]['name'], track['name']));
+      recommended_top_tracks_album_src.push(track['album']['images'][0]['url']);
+      recommended_top_tracks_url.push(track['external_urls']['spotify']);
     }
     return spotifyApi.getAudioFeaturesForTracks(recommended_top_genres_tracks_ID);
   }, function(err) { console.error(err); fail(); })
@@ -350,7 +356,8 @@ function obtain_results(body, success, fail) {
     console.log("gathering FEATURES for RECOMMENDED top GENRES tracks...");
     let features = data.body['audio_features'];
     // console.log(features[0]);
-    update_features(3, features, recommended_top_genres_tracks_info, recommended_top_genres_tracks_ID);
+    update_features(3, features, recommended_top_genres_tracks_info, recommended_top_genres_tracks_ID,
+                    recommended_top_genres_tracks_album_src, recommended_top_genres_tracks_url);
     return spotifyApi.getAudioFeaturesForTracks(recommended_top_tracks_ID);
   }, function(err) { console.error(err); fail(); })
 
@@ -359,7 +366,8 @@ function obtain_results(body, success, fail) {
     console.log("gathering FEATURES for RECOMMENDED top TRACKS...");
     let features = data.body['audio_features'];
     // console.log(features[0]);
-    update_features(4, features, recommended_top_tracks_info, recommended_top_tracks_ID);
+    update_features(4, features, recommended_top_tracks_info, recommended_top_tracks_ID,
+                    recommended_top_tracks_album_src, recommended_top_tracks_url);
     return spotifyApi.getMyDevices();
   }, function(err) { console.error(err); fail(); })
 
@@ -382,6 +390,16 @@ function obtain_results(body, success, fail) {
   }, function(err) { console.error(err); fail(); })
   ;
 }
+
+app.get('/',function(req, res){
+  console.log(req.method + " " + req.route.path);
+  res.render('index.html');
+});
+
+app.post('/',function(req, res){
+  console.log(req.method + " " + req.route.path);
+  res.redirect(authorizeURL);
+});
 
 app.get('/home',function(req, res){
   console.log(req.method + " " + req.route.path);

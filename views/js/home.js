@@ -58,6 +58,7 @@ const song_HTML_content =
 add_song_HTML("saved_");
 add_song_HTML("played_");
 add_song_HTML("top_");
+add_song_HTML("recommended_");
 
 if('word_cloud_src' in resultsJSON){
   document.getElementById('word_cloud').src = resultsJSON['word_cloud_src'].replace(/amp;/g, ''); }
