@@ -121,7 +121,7 @@ function obtain_word_cloud(results, success, fail){
     body: {
       'genres_count': genres_count,
       'display_name': results['display_name'],
-      'track_id': results['id'],
+      'id': results['id'],
       'saved_songs_features': saved_songs_features,
       'played_songs_features': played_songs_features,
       'top_songs_features': top_songs_features,
@@ -137,7 +137,7 @@ function obtain_word_cloud(results, success, fail){
     const recommendations = response['top_recommendations'];
     // console.log("word_cloud_src:" + word_cloud_src);
     // console.log("recommendations:" + recommendations);
-    if (reponse == null){ fail(); }
+    if (response == null){ fail(); }
     else {
       results['word_cloud_src'] = word_cloud_src;
       results['recommended_songs'] = recommendations;
