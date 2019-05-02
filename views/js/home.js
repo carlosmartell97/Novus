@@ -29,6 +29,9 @@ window.history.pushState('home', 'NOVUS', '/');
 const resultsJSON = JSON.parse(results);
 console.log(resultsJSON);
 const access_token = resultsJSON['access_token'];
+const radar_labels = resultsJSON['radar_labels'];
+const radar_user_values = resultsJSON['radar_user_values'];
+const radar_recommended_values = resultsJSON['radar_recommended_values'];
 
 let profile_pic_src = '/img/default_profile_pic.jpeg';
 if('profile_pic' in resultsJSON){
@@ -69,3 +72,49 @@ if(Object.keys(resultsJSON['top_genres']).length > 0){
     top_genres.innerHTML += ', '+resultsJSON['top_genres'][i];
   }
 }
+
+// ___________________________________________________________________
+// ___________________________________________________________________
+// CHART.JS  _________________________________________________________
+// ___________________________________________________________________
+const ctx = document.getElementById('myChart').getContext('2d');
+
+const color = Chart.helpers.color;
+const chartColors = {
+	red: 'rgb(255, 99, 132)',
+	orange: 'rgb(255, 159, 64)',
+	yellow: 'rgb(255, 205, 86)',
+	green: 'rgb(75, 220, 60)',
+	blue: 'rgb(54, 162, 235)',
+	purple: 'rgb(153, 102, 255)',
+	grey: 'rgb(201, 203, 207)'
+};
+const data = {
+    labels: radar_labels,
+    datasets: [{
+        label: "average in your tracks",
+        backgroundColor: color(chartColors.green).alpha(0.2).rgbString(),
+        borderColor: chartColors.green,
+        pointBackgroundColor: chartColors.green,
+        data: radar_user_values,
+    },
+    {
+        label: "average in recommended tracks",
+        backgroundColor: color(chartColors.red).alpha(0.2).rgbString(),
+        borderColor: chartColors.red,
+        pointBackgroundColor: chartColors.red,
+        data: radar_recommended_values,
+    }]
+};
+const options = {
+    responsive: true,
+    maintainAspectRatio:true,
+    legend: {
+      position: 'bottom'
+    }
+};
+const myRadarChart = new Chart(ctx, {
+    type: 'radar',
+    data: data,
+    options: options
+});

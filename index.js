@@ -135,12 +135,18 @@ function obtain_word_cloud(results, success, fail){
   .then(function (response) {
     const word_cloud_src = response['word_cloud_src'];
     const recommendations = response['top_recommendations'];
+    const radar_labels = response['radar_labels'];
+    const radar_user_values = response['radar_user_values'];
+    const radar_recommended_values = response['radar_recommended_values'];
     // console.log("word_cloud_src:" + word_cloud_src);
     // console.log("recommendations:" + recommendations);
     if (response == null){ fail(); }
     else {
       results['word_cloud_src'] = word_cloud_src;
       results['recommended_songs'] = recommendations;
+      results['radar_labels'] = radar_labels;
+      results['radar_user_values'] = radar_user_values;
+      results['radar_recommended_values'] = radar_recommended_values;
       success(results);
     }
   })
