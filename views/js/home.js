@@ -16,12 +16,31 @@ function add_song_HTML(prefix){
     document.getElementById(prefix+'song'+(i+1)).innerHTML = song_info[1];
     document.getElementById(prefix+'artist'+(i+1)).innerHTML = song_info[0];
     if ('device_id' in resultsJSON){
-      document.getElementById(prefix+'playback'+(i+1)).setAttribute("onClick", "play_song('"+resultsJSON['device_id']+"','"+song['track_id']+"')");
+      document.getElementById(prefix+'playback'+(i+1)).setAttribute("onClick", "update_song_playing_radar('"+prefix+"',"+i+"); play_song('"+resultsJSON['device_id']+"','"+song['track_id']+"')");
     } else {
-      document.getElementById(prefix+'playback'+(i+1)).setAttribute("onclick", 'window.open("'+song['track_url']+'","_blank")');
+      document.getElementById(prefix+'playback'+(i+1)).setAttribute("onclick", "update_song_playing_radar('"+prefix+"',"+i+"); window.open('"+song['track_url']+"','_blank')");
     }
     document.getElementById(prefix+'album'+(i+1)).src = song['album_image_src'];
   }
+}
+
+function update_song_playing_radar(prefix, position){
+  // console.log(config['data']['datasets'].length);
+  let song = resultsJSON[prefix+'songs'][position];
+
+  let new_dataset = {
+    label: 'song "'+song['song_info'].split("*")[1]+'"',
+    backgroundColor: color(chartColors.blue).alpha(0.2).rgbString(),
+    borderColor: chartColors.blue,
+    pointBackgroundColor: chartColors.blue,
+    data: resultsJSON[prefix+'songs'][position]['features']
+  };
+  if(config['data']['datasets'].length == 2){
+    config['data']['datasets'].push(new_dataset);
+  } else {
+    config['data']['datasets'][2] = new_dataset;
+  }
+  myRadarChart.update();
 }
 
 window.history.pushState('home', 'NOVUS', '/');
@@ -42,7 +61,6 @@ document.getElementById('id').innerHTML = resultsJSON['id'];
 document.getElementById('followers').innerHTML = resultsJSON['followers'];
 document.getElementById('total_saved_songs').innerHTML = resultsJSON['total_saved_songs'];
 document.getElementById('country').innerHTML = resultsJSON['country'];
-document.getElementById('product').innerHTML = resultsJSON['product'];
 document.getElementById('type').innerHTML = resultsJSON['type'];
 
 const song_HTML_content =
@@ -68,9 +86,20 @@ if('word_cloud_src' in resultsJSON){
 let top_genres = document.getElementById('top_genres');
 if(Object.keys(resultsJSON['top_genres']).length > 0){
   top_genres.innerHTML += resultsJSON['top_genres'][0];
-  for(let i=1; i<20; i++){
-    top_genres.innerHTML += ', '+resultsJSON['top_genres'][i];
+  for(let i=1; i<16; i++){
+    if(i==15){
+      top_genres.innerHTML += ', ...';
+    } else {
+      top_genres.innerHTML += ', '+resultsJSON['top_genres'][i];
+    }
   }
+}
+
+let seed_genres_available = document.getElementById('seed_genres_available');
+for(let i=0; i<Object.keys(resultsJSON['seed_genres_available']).length; i++){
+  seed_genres_available.innerHTML += '<button type="button" class="btn btn-outline-primary">'
+    +resultsJSON['seed_genres_available'][i]
+  +'</button>';
 }
 
 // ___________________________________________________________________
@@ -90,31 +119,44 @@ const chartColors = {
 	grey: 'rgb(201, 203, 207)'
 };
 const data = {
-    labels: radar_labels,
-    datasets: [{
-        label: "average in your tracks",
-        backgroundColor: color(chartColors.green).alpha(0.2).rgbString(),
-        borderColor: chartColors.green,
-        pointBackgroundColor: chartColors.green,
-        data: radar_user_values,
-    },
-    {
-        label: "average in recommended tracks",
-        backgroundColor: color(chartColors.red).alpha(0.2).rgbString(),
-        borderColor: chartColors.red,
-        pointBackgroundColor: chartColors.red,
-        data: radar_recommended_values,
-    }]
+  labels: radar_labels,
+  datasets: [{
+    label: "average in your tracks",
+    backgroundColor: color(chartColors.green).alpha(0.2).rgbString(),
+    borderColor: chartColors.green,
+    pointBackgroundColor: chartColors.green,
+    data: radar_user_values
+  },
+  {
+    label: "average in recommended tracks",
+    backgroundColor: color(chartColors.red).alpha(0.2).rgbString(),
+    borderColor: chartColors.red,
+    pointBackgroundColor: chartColors.red,
+    data: radar_recommended_values
+  }]
 };
 const options = {
-    responsive: true,
-    maintainAspectRatio:true,
-    legend: {
-      position: 'bottom'
-    }
+  responsive: true,
+  maintainAspectRatio:true,
+
+  scaleShowLabels: true,
+  pointLabelFontFamily : "'Arial'",
+  ointLabelFontStyle : "normal",
+  //Number - Point label font size in pixels
+  pointLabelFontSize : 10,
+  //String - Point label font colour
+  pointLabelFontColor : "#666",
+  //Boolean - Whether to show a dot for each point
+  pointDot : true,
+
+
+  legend: {
+    position: 'bottom'
+  }
 };
-const myRadarChart = new Chart(ctx, {
-    type: 'radar',
-    data: data,
-    options: options
-});
+const config = {
+  type: 'radar',
+  data: data,
+  options: options
+};
+const myRadarChart = new Chart(ctx, config);

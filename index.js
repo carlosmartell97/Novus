@@ -53,6 +53,30 @@ function update_genres_count(artists){
   }
 }
 
+function normalize(x, min, max, desired_min, desired_max){
+  return (desired_max-desired_min).toFixed(2) / (max-min).toFixed(2) * (x-max).toFixed(2) + desired_max
+}
+
+const features_value_range = {
+	'acousticness':      [0, 1, 'Confidence measure of whether the track is acoustic'],
+	'danceability':      [0, 1, 'How suitable a track is for dancing based on tempo, rhythm stability, beat strength, and overall regularity'],
+	'energy':            [0, 1, 'Perceptual measure of intensity and activity based on loudness, timbre, onset rate, and general entropy'],
+	'instrumentalness':  [0, 1, 'Confidence measure of whether a track contains no vocals'],
+  // 'key':               [0, 12, 'The key the track is in, using standard Pitch Class notation'],
+  'liveness': 		     [0, 1, 'Probability that the track was performed live'],
+  'loudness': 		     [-60, 0, 'The overall loudness of a track in decibels'],
+  // 'mode': 			       [0, 1, 'The modality of a track, major represented with 1 and minor with 0'],
+  'speechiness':       [0, 1, 'The presence of spoken words in a track'],
+	'tempo': 			       [50, 200, 'Estimated tempo of a track in beats per minute (BPM)'],
+	'valence': 			     [0, 1, 'A measure from 0.0 to 1.0 describing the musical positiveness conveyed by a track']
+};
+function normalize_feature(feature, value){
+  let value_range = features_value_range[feature];
+  return normalize(value, value_range[0], value_range[1], 0, 1);
+}
+
+let results = {};
+
 let saved_songs_info = [];
 let played_songs_info = [];
 let top_songs_info = [];
@@ -73,32 +97,31 @@ let recommended_top_tracks_url = [];
     mode 3 -> recommended_top_genres_tracks_features
     mode 4 -> recommended_top_tracks_features
 */
-function update_features(mode, features, songs_info, songs_ID, songs_album_src){
+function update_features(mode, features, songs_info, songs_ID, tipo, songs_album_src, tracks_url){
   for(let i=0; i<features.length; i++){
     let song_info_split = songs_info[i].split('*');
     let new_features = {
       'song_info': artist_with_song(song_info_split[0], song_info_split[1]),
-      'track_id': songs_ID[i],
-      'danceability': features[i]['danceability'],
-      'energy': features[i]['energy'],
-      'key': features[i]['loudness'],
-      'mode': features[i]['mode'],
-      'loudness': features[i]['loudness'],
-      'speachiness': features[i]['speachiness'],
-      'acousticness': features[i]['acousticness'],
-      'instrumentalness': features[i]['instrumentalness'],
-      'liveness': features[i]['liveness'],
-      'valence': features[i]['valence'],
-      'tempo': features[i]['tempo'],
+      'track_id': songs_ID[i]
     };
+    for(feature in features_value_range){
+      new_features[feature] = normalize_feature(feature, features[i][feature]);
+      if (!(mode==3 || mode==4)){
+        results[tipo][i]['features'].push(
+          normalize_feature(feature, features[i][feature])
+        );
+      }
+    }
     if(mode==0){ saved_songs_features.push(new_features); }
     else if(mode==1){ played_songs_features.push(new_features); }
     else if(mode==2){ top_songs_features.push(new_features); }
     else if(mode==3){
       new_features['album_image_src'] = songs_album_src[i];
+      new_features['track_url'] = tracks_url[i];
       recommended_top_genres_tracks_features.push(new_features); }
     else if(mode==4){
       new_features['album_image_src'] = songs_album_src[i];
+      new_features['track_url'] = tracks_url[i];
       recommended_top_tracks_features.push(new_features); }
   }
 }
@@ -111,7 +134,7 @@ let recommended_top_tracks_info = [];
 
 let recommended_top_genres_tracks_features = [];
 let recommended_top_tracks_features = [];
-function obtain_word_cloud(results, success, fail){
+function obtain_word_cloud(success, fail){
   console.log("obtaining word cloud for GENRES...");
   // console.log(genres_count);
 
@@ -122,6 +145,7 @@ function obtain_word_cloud(results, success, fail){
       'genres_count': genres_count,
       'display_name': results['display_name'],
       'id': results['id'],
+      'features_name': Object.keys(features_value_range),
       'saved_songs_features': saved_songs_features,
       'played_songs_features': played_songs_features,
       'top_songs_features': top_songs_features,
@@ -157,8 +181,6 @@ let maximum_seeds_allowed = 5;
 function obtain_results(body, success, fail) {
   print_token(body);
 
-  let results = {};
-
   let saved_songs_ID = [];
   let saved_artists_ID = [];
 
@@ -177,7 +199,6 @@ function obtain_results(body, success, fail) {
     results['id'] = data.body['id'];
     if(data.body['images'].length>0 && 'url' in data.body['images'][0]){
       results['profile_pic'] = data.body['images'][0]['url']; }
-    results['product'] = data.body['product'];
     results['type'] = data.body['type'];
     return spotifyApi.getMySavedTracks({limit:50});
   }, function(err) { console.error(err); fail(); })
@@ -195,7 +216,8 @@ function obtain_results(body, success, fail) {
         'song_info': artist_with_song(artist['name'], track['name']),
         'track_id': track['id'],
         'album_image_src': track['album']['images'][0]['url'],
-        'track_url': track['external_urls']['spotify']
+        'track_url': track['external_urls']['spotify'],
+        'features': []
       });
       saved_songs_ID.push(track['id']);
       saved_artists_ID.push(artist['id']);
@@ -216,7 +238,8 @@ function obtain_results(body, success, fail) {
         'song_info': artist_with_song(artist['name'], track['name']),
         'track_id': track['id'],
         'album_image_src': track['album']['images'][0]['url'],
-        'track_url': track['external_urls']['spotify']
+        'track_url': track['external_urls']['spotify'],
+        'features': []
       });
       played_songs_ID.push(track['id']);
       played_artists_ID.push(artist['id']);
@@ -237,7 +260,8 @@ function obtain_results(body, success, fail) {
         'song_info': artist_with_song(artist['name'], track['name']),
         'track_id': track['id'],
         'album_image_src': track['album']['images'][0]['url'],
-        'track_url': track['external_urls']['spotify']
+        'track_url': track['external_urls']['spotify'],
+        'features': []
       });
       top_songs_ID.push(track['id']);
       top_artists_ID.push(artist['id']);
@@ -252,7 +276,7 @@ function obtain_results(body, success, fail) {
     let features = data.body['audio_features'];
     // console.log(saved_songs_info[0]);
     // console.log(features[0]);
-    update_features(0, features, saved_songs_info, saved_songs_ID, null, null);
+    update_features(0, features, saved_songs_info, saved_songs_ID, 'saved_songs', null, null);
     return spotifyApi.getAudioFeaturesForTracks(played_songs_ID);
   }, function(err) { console.error(err); fail(); })
 
@@ -262,7 +286,7 @@ function obtain_results(body, success, fail) {
     let features = data.body['audio_features'];
     // console.log(played_songs_info[0]);
     // console.log(features[0]);
-    update_features(1, features, played_songs_info, played_songs_ID, null, null);
+    update_features(1, features, played_songs_info, played_songs_ID, 'played_songs', null, null);
     return spotifyApi.getAudioFeaturesForTracks(top_songs_ID);
   }, function(err) { console.error(err); fail(); })
 
@@ -272,7 +296,7 @@ function obtain_results(body, success, fail) {
     let features = data.body['audio_features'];
     // console.log(top_songs_info[0]);
     // console.log(features[0]);
-    update_features(2, features, top_songs_info, top_songs_ID, null, null);
+    update_features(2, features, top_songs_info, top_songs_ID, 'top_songs', null, null);
     return spotifyApi.getArtists(saved_artists_ID);
   }, function(err) { console.error(err); fail(); })
 
@@ -316,11 +340,19 @@ function obtain_results(body, success, fail) {
     results['top_genres'] = genres_count_list;
 
     let top_genres_available = [];
+    results['seed_genres_available'] = []
     for(let i=0; i<genres_count_list.length; i++){
-      if(top_genres_available.length == maximum_seeds_allowed){ i=genres_count_list.length; continue; }
-      let genre = genres_count_list[i];
-      if(available_genres.indexOf(genre) >= 0){
-        top_genres_available.push(genre);
+      let top_genre = genres_count_list[i];
+      let index = available_genres.indexOf(top_genre)
+      if(index >= 0){
+        results['seed_genres_available'].push(top_genre);
+        if(top_genres_available.length < maximum_seeds_allowed){ top_genres_available.push(top_genre); }
+      }
+    }
+    for(let i=0; i<available_genres.length; i++){
+      let available_genre = available_genres[i];
+      if(results['seed_genres_available'].indexOf(available_genre) < 0){
+        results['seed_genres_available'].push(available_genre);
       }
     }
     console.log("top_genres_available: "+top_genres_available);
@@ -363,7 +395,7 @@ function obtain_results(body, success, fail) {
     let features = data.body['audio_features'];
     // console.log(features[0]);
     update_features(3, features, recommended_top_genres_tracks_info, recommended_top_genres_tracks_ID,
-                    recommended_top_genres_tracks_album_src, recommended_top_genres_tracks_url);
+                    '', recommended_top_genres_tracks_album_src, recommended_top_genres_tracks_url);
     return spotifyApi.getAudioFeaturesForTracks(recommended_top_tracks_ID);
   }, function(err) { console.error(err); fail(); })
 
@@ -373,7 +405,7 @@ function obtain_results(body, success, fail) {
     let features = data.body['audio_features'];
     // console.log(features[0]);
     update_features(4, features, recommended_top_tracks_info, recommended_top_tracks_ID,
-                    recommended_top_tracks_album_src, recommended_top_tracks_url);
+                    '', recommended_top_tracks_album_src, recommended_top_tracks_url);
     return spotifyApi.getMyDevices();
   }, function(err) { console.error(err); fail(); })
 
@@ -389,7 +421,7 @@ function obtain_results(body, success, fail) {
     }
 
     // obtain word cloud for GENRES
-    obtain_word_cloud(results, function(){
+    obtain_word_cloud(function(){
       console.log("Done.");
       success(results);
     }, function(err) { console.error(err); fail(); });
@@ -421,7 +453,7 @@ app.get('/home',function(req, res){
       spotifyApi.setRefreshToken(data.body['refresh_token']);
 
       obtain_results(data.body,
-        function(results){
+        function(){
           results['access_token'] = data.body['access_token'];
           res.render('home.html', { results:JSON.stringify(results) });
         }, function(){ res.render('error.html'); });
@@ -436,7 +468,7 @@ app.get('/home',function(req, res){
           console.log('The access token has been refreshed!');
 
           obtain_results(data.body,
-            function(results){
+            function(){
               results['access_token'] = data.body['access_token'];
               res.render('home.html', { results:JSON.stringify(results) });
             }, function(){ res.render('error.html'); });
