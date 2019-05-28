@@ -1,27 +1,36 @@
-require('dotenv').config()
-const SpotifyWebApi = require('spotify-web-api-node');
+"use strict"
+require('dotenv').config();
 const express = require('express');
-const url = require('url').URL;
+var request = require('request');
 const rp = require('request-promise');
+const cors = require('cors');
+const querystring = require('querystring');
+const cookieParser = require('cookie-parser');
+// const SpotifyWebApi = require('spotify-web-api-js');
+const SpApi = require('./api.js');
 
-const scopes = [
-  'user-read-private', 'user-library-read', 'user-read-recently-played',
-  'user-top-read', 'streaming', 'user-read-birthdate', 'user-read-email',
-  'user-read-playback-state'];
-const state = 'some-state-of-my-choice';
-const spotifyApi = new SpotifyWebApi({
-  clientId: process.env.SPOTIFY_CLIENT_ID,
-  clientSecret: process.env.SPOTIFY_CLIENT_SECRET,
-  redirectUri: process.env.SPOTIFY_REDIRECT_URI
-});
-const authorizeURL = spotifyApi.createAuthorizeURL(scopes, state);
+const scope = 'user-read-private user-library-read user-read-recently-played user-top-read streaming user-read-birthdate user-read-email user-read-playback-state';
+// let spotifyApi = new SpotifyWebApi();
+const client_id = process.env.SPOTIFY_CLIENT_ID;
+const client_secret = process.env.SPOTIFY_CLIENT_SECRET;
+const redirect_uri = process.env.SPOTIFY_REDIRECT_URI;
+let spApi;
 
-
+const stateKey = 'spotify_auth_state';
 const app = express();
 app.set('port', process.env.PORT || 3000);
 app.engine('html', require('ejs').renderFile);
 app.set('view engine', 'html');
-app.use(express.static(__dirname + '/views'));
+app.use(express.static(__dirname + '/views'))
+  .use(cors())
+  .use(cookieParser());
+
+function generateRandomString(length) {
+  var text = '';
+  var possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  for (var i = 0; i < length; i++) { text += possible.charAt(Math.floor(Math.random() * possible.length)); }
+  return text;
+}
 
 
 function print_token(body) {
@@ -104,7 +113,7 @@ function update_features(mode, features, songs_info, songs_ID, tipo, songs_album
       'song_info': artist_with_song(song_info_split[0], song_info_split[1]),
       'track_id': songs_ID[i]
     };
-    for(feature in features_value_range){
+    for(let feature in features_value_range){
       new_features[feature] = normalize_feature(feature, features[i][feature]);
       if (!(mode==3 || mode==4)){
         results[tipo][i]['features'].push(
@@ -157,11 +166,11 @@ function obtain_word_cloud(success, fail){
 
   rp(options)
   .then(function (response) {
-    const word_cloud_src = response['word_cloud_src'];
-    const recommendations = response['top_recommendations'];
-    const radar_labels = response['radar_labels'];
-    const radar_user_values = response['radar_user_values'];
-    const radar_recommended_values = response['radar_recommended_values'];
+    let word_cloud_src = response['word_cloud_src'];
+    let recommendations = response['top_recommendations'];
+    let radar_labels = response['radar_labels'];
+    let radar_user_values = response['radar_user_values'];
+    let radar_recommended_values = response['radar_recommended_values'];
     // console.log("word_cloud_src:" + word_cloud_src);
     // console.log("recommendations:" + recommendations);
     if (response == null){ fail(); }
@@ -178,9 +187,8 @@ function obtain_word_cloud(success, fail){
 }
 
 let maximum_seeds_allowed = 5;
-function obtain_results(body, success, fail) {
-  print_token(body);
-
+function obtain_results(success, fail) {
+  console.log('obtain_results()');
   let saved_songs_ID = [];
   let saved_artists_ID = [];
 
@@ -191,7 +199,8 @@ function obtain_results(body, success, fail) {
   let top_artists_ID = [];
 
   // get user info
-  spotifyApi.getMe().then(function(data) {
+  spApi.getMe().then(function(data) {
+    console.log("gathering USER data...");
     // console.log(data.body);
     results['country'] = data.body['country'];
     results['display_name'] = data.body['display_name'];
@@ -200,13 +209,14 @@ function obtain_results(body, success, fail) {
     if(data.body['images'].length>0 && 'url' in data.body['images'][0]){
       results['profile_pic'] = data.body['images'][0]['url']; }
     results['type'] = data.body['type'];
-    return spotifyApi.getMySavedTracks({limit:50});
+    return spApi.getMySavedTracks({limit:50});
   }, function(err) { console.error(err); fail(); })
 
   // get user's recently SAVED tracks
   .then(function(data) {
     console.log("gathering recently SAVED...");
     // console.log(data.body['items'][0]);
+    console.log(data.body['items'].length);
     results['total_saved_songs'] = data.body['total'];
     results['saved_songs'] = [];
     for(let i=0; i<data.body['items'].length; i++) {
@@ -223,13 +233,14 @@ function obtain_results(body, success, fail) {
       saved_artists_ID.push(artist['id']);
       saved_songs_info.push(artist_with_song(artist['name'], track['name']));
     }
-    return spotifyApi.getMyRecentlyPlayedTracks({limit:50});
-  }, function(err) { console.error(err); fail(); })
+    return spApi.getMyRecentlyPlayedTracks({limit:50});
+  }, function(err) { console.log('FAILED'); console.error(err); fail(); })
 
   // get user's recently PLAYED tracks
   .then(function(data) {
     console.log("gathering recently PLAYED...");
     // console.log(data.body['items'][0]);
+    console.log(data.body['items'].length);
     results['played_songs'] = [];
     for(let i=0; i<data.body['items'].length; i++){
       let track = data.body['items'][i]['track'];
@@ -245,12 +256,13 @@ function obtain_results(body, success, fail) {
       played_artists_ID.push(artist['id']);
       played_songs_info.push(artist_with_song(artist['name'], track['name']));
     }
-    return spotifyApi.getMyTopTracks({limit:50, time_range:'short_term'})
+    return spApi.getMyTopTracks({limit:50, time_range:'short_term'})
   }, function(err) { console.error(err); fail(); })
 
   // get user's TOP songs
   .then(function(data) {
     console.log("gathering last month's TOP...");
+    console.log(data.body['items'].length);
     // console.log(data.body['items'][0]);
     results['top_songs'] = [];
     for(let i=0; i<data.body['items'].length; i++){
@@ -267,17 +279,18 @@ function obtain_results(body, success, fail) {
       top_artists_ID.push(artist['id']);
       top_songs_info.push(artist_with_song(artist['name'], track['name']));
     }
-    return spotifyApi.getAudioFeaturesForTracks(saved_songs_ID);
+    return spApi.getAudioFeaturesForTracks(saved_songs_ID);
   }, function(err) { console.error(err); fail(); })
 
   // get FEATURES for user's SAVED songs
   .then(function(data) {
     console.log("gathering FEATURES for SAVED tracks...");
+    // console.log(data.body);
     let features = data.body['audio_features'];
     // console.log(saved_songs_info[0]);
-    // console.log(features[0]);
+    console.log(features[0]['danceability']);
     update_features(0, features, saved_songs_info, saved_songs_ID, 'saved_songs', null, null);
-    return spotifyApi.getAudioFeaturesForTracks(played_songs_ID);
+    return spApi.getAudioFeaturesForTracks(played_songs_ID);
   }, function(err) { console.error(err); fail(); })
 
   // get FEATURES for user's PLAYED songs
@@ -285,9 +298,9 @@ function obtain_results(body, success, fail) {
     console.log("gathering FEATURES for PLAYED tracks...");
     let features = data.body['audio_features'];
     // console.log(played_songs_info[0]);
-    // console.log(features[0]);
+    console.log(features[0]['danceability']);
     update_features(1, features, played_songs_info, played_songs_ID, 'played_songs', null, null);
-    return spotifyApi.getAudioFeaturesForTracks(top_songs_ID);
+    return spApi.getAudioFeaturesForTracks(top_songs_ID);
   }, function(err) { console.error(err); fail(); })
 
   // get FEATURES for user's TOP songs
@@ -295,39 +308,42 @@ function obtain_results(body, success, fail) {
     console.log("gathering FEATURES for TOP tracks...");
     let features = data.body['audio_features'];
     // console.log(top_songs_info[0]);
-    // console.log(features[0]);
+    console.log(features[0]['danceability']);
     update_features(2, features, top_songs_info, top_songs_ID, 'top_songs', null, null);
-    return spotifyApi.getArtists(saved_artists_ID);
+    return spApi.getArtists(saved_artists_ID);
   }, function(err) { console.error(err); fail(); })
 
   // get ARTISTS for user's SAVED songs
   .then(function(data) {
     console.log("gathering ARTISTS for SAVED songs...");
     // console.log(data.body);
+    console.log(data.body['artists'][0]['name']);
     update_genres_count(data.body['artists']);
-    return spotifyApi.getArtists(played_artists_ID);
+    return spApi.getArtists(played_artists_ID);
   }, function(err) { console.error(err); fail(); })
 
   // get ARTISTS for user's PLAYED songs
   .then(function(data) {
     console.log("gathering ARTISTS for PLAYED songs...");
     // console.log(data.body);
+    console.log(data.body['artists'][0]['name']);
     update_genres_count(data.body['artists']);
-    return spotifyApi.getArtists(top_artists_ID);
+    return spApi.getArtists(top_artists_ID);
   }, function(err) { console.error(err); fail(); })
 
   // get ARTISTS for user's TOP songs
   .then(function(data) {
     console.log("gathering ARTISTS for TOP songs...");
     // console.log(data.body);
+    console.log(data.body['artists'][0]['name']);
     update_genres_count(data.body['artists']);
-    return spotifyApi.getAvailableGenreSeeds();
+    return spApi.getAvailableGenreSeeds();
   }, function(err) { console.error(err); fail(); })
 
   // get available GENRE SEEDS
   .then(function(data) {
-    console.log("gathering available GENRE SEEDS");
-    // console.log(data.body['genres']);
+    console.log("gathering available GENRE SEEDS...");
+    console.log(data.body['genres'][0]);
     let available_genres = data.body['genres'];
 
     // sort genres
@@ -356,13 +372,15 @@ function obtain_results(body, success, fail) {
       }
     }
     console.log("top_genres_available: "+top_genres_available);
-    return spotifyApi.getRecommendations({ limit:80, seed_genres:top_genres_available, seed_tracks:[], seed_artists:[] });
+    // return spApi.getRecommendations({ limit:80, market:results['country'], seed_genres:top_genres_available, seed_tracks:[], seed_artists:[] });
+    return spApi.getRecommendations({ limit:80, seed_genres:top_genres_available, seed_tracks:[], seed_artists:[] });
   }, function(err) { console.error(err); fail(); })
 
   // get RECOMMENDATIONS with top genres
   .then(function(data){
     console.log("gathering RECOMMENDATIONS with top genres...");
-    // console.log(data.body['tracks'][0]['artists'][0]['name']+' - '+data.body['tracks'][0]['name']);
+    console.log(data);
+    console.log(data.body['tracks'][0]['artists'][0]['name']+' - '+data.body['tracks'][0]['name']);
     for(let i=0; i<data.body['tracks'].length; i++){
       let track = data.body['tracks'][i];
       recommended_top_genres_tracks_ID.push(track['id']);
@@ -372,61 +390,62 @@ function obtain_results(body, success, fail) {
     }
 
     let top_tracks = top_songs_ID.slice(0, maximum_seeds_allowed);
-    return spotifyApi.getRecommendations({ limit:80, seed_genres:[], seed_tracks:top_tracks, seed_artists:[] });
+    // return spApi.getRecommendations({ limit:80, market:results['country'], seed_genres:[], seed_tracks:top_tracks, seed_artists:[] });
+    return spApi.getRecommendations({ limit:80, seed_genres:[], seed_tracks:top_tracks, seed_artists:[] });
   }, function(err) { console.error(err); fail(); })
 
-  // get RECOMMENDATIONS with TOP tracks
-  .then(function(data){
-    console.log("gathering RECOMMENDATIONS with TOP tracks...");
-    // console.log(data.body['tracks'][0]['artists'][0]['name']+' - '+data.body['tracks'][0]['name']);
-    for(let i=0; i<data.body['tracks'].length; i++){
-      let track = data.body['tracks'][i];
-      recommended_top_tracks_ID.push(track['id']);
-      recommended_top_tracks_info.push(artist_with_song(track['artists'][0]['name'], track['name']));
-      recommended_top_tracks_album_src.push(track['album']['images'][0]['url']);
-      recommended_top_tracks_url.push(track['external_urls']['spotify']);
-    }
-    return spotifyApi.getAudioFeaturesForTracks(recommended_top_genres_tracks_ID);
-  }, function(err) { console.error(err); fail(); })
+  // // get RECOMMENDATIONS with TOP tracks
+  // .then(function(data){
+  //   console.log("gathering RECOMMENDATIONS with TOP tracks...");
+  //   console.log(data.body['tracks'][0]['artists'][0]['name']+' - '+data.body['tracks'][0]['name']);
+  //   for(let i=0; i<data.body['tracks'].length; i++){
+  //     let track = data.body['tracks'][i];
+  //     recommended_top_tracks_ID.push(track['id']);
+  //     recommended_top_tracks_info.push(artist_with_song(track['artists'][0]['name'], track['name']));
+  //     recommended_top_tracks_album_src.push(track['album']['images'][0]['url']);
+  //     recommended_top_tracks_url.push(track['external_urls']['spotify']);
+  //   }
+  //   return spApi.getAudioFeaturesForTracks(recommended_top_genres_tracks_ID);
+  // }, function(err) { console.error(err); fail(); })
+  //
+  // // get FEATURES for RECOMMENDED top GENRES tracks
+  // .then(function(data){
+  //   console.log("gathering FEATURES for RECOMMENDED top GENRES tracks...");
+  //   let features = data.body['audio_features'];
+  //   console.log(features[0]['danceability']);
+  //   update_features(3, features, recommended_top_genres_tracks_info, recommended_top_genres_tracks_ID,
+  //                   '', recommended_top_genres_tracks_album_src, recommended_top_genres_tracks_url);
+  //   return spotifyApi.getAudioFeaturesForTracks(recommended_top_tracks_ID);
+  // }, function(err) { console.error(err); fail(); })
+  //
+  // // get FEATURES for RECOMMENDED top TRACKS
+  // .then(function(data){
+  //   console.log("gathering FEATURES for RECOMMENDED top TRACKS...");
+  //   let features = data.body['audio_features'];
+  //   console.log(features[0]['danceability']);
+  //   update_features(4, features, recommended_top_tracks_info, recommended_top_tracks_ID,
+  //                   '', recommended_top_tracks_album_src, recommended_top_tracks_url);
+  //   return spotifyApi.getMyDevices();
+  // }, function(err) { console.error(err); fail(); })
 
-  // get FEATURES for RECOMMENDED top GENRES tracks
-  .then(function(data){
-    console.log("gathering FEATURES for RECOMMENDED top GENRES tracks...");
-    let features = data.body['audio_features'];
-    // console.log(features[0]);
-    update_features(3, features, recommended_top_genres_tracks_info, recommended_top_genres_tracks_ID,
-                    '', recommended_top_genres_tracks_album_src, recommended_top_genres_tracks_url);
-    return spotifyApi.getAudioFeaturesForTracks(recommended_top_tracks_ID);
-  }, function(err) { console.error(err); fail(); })
-
-  // get FEATURES for RECOMMENDED top TRACKS
-  .then(function(data){
-    console.log("gathering FEATURES for RECOMMENDED top TRACKS...");
-    let features = data.body['audio_features'];
-    // console.log(features[0]);
-    update_features(4, features, recommended_top_tracks_info, recommended_top_tracks_ID,
-                    '', recommended_top_tracks_album_src, recommended_top_tracks_url);
-    return spotifyApi.getMyDevices();
-  }, function(err) { console.error(err); fail(); })
-
-  // get user's connected DEVICES
-  .then(function(data){
-    console.log("gathering connected DEVICES...");
-    // console.log(data.body['devices']);
-    let devices = data.body['devices'];
-    for(let i=0; i<devices.length; i++){
-      if(devices[i]['is_active']){
-        results['device_id'] = devices[i]['id'];
-      }
-    }
-
-    // obtain word cloud for GENRES
-    obtain_word_cloud(function(){
-      console.log("Done.");
-      success(results);
-    }, function(err) { console.error(err); fail(); });
-  }, function(err) { console.error(err); fail(); })
-  ;
+  // // get user's connected DEVICES
+  // .then(function(data){
+  //   console.log("gathering connected DEVICES...");
+  //   // console.log(data.body['devices']);
+  //   let devices = data.body['devices'];
+  //   for(let i=0; i<devices.length; i++){
+  //     if(devices[i]['is_active']){
+  //       results['device_id'] = devices[i]['id'];
+  //     }
+  //   }
+  //
+  //   // obtain word cloud for GENRES
+  //   obtain_word_cloud(function(){
+  //     console.log("Done.");
+  //     success(results);
+  //   }, function(err) { console.error(err); fail(); });
+  // }, function(err) { console.error(err); fail(); })
+  // ;
 }
 
 app.get('/',function(req, res){
@@ -436,49 +455,128 @@ app.get('/',function(req, res){
 
 app.post('/',function(req, res){
   console.log(req.method + " " + req.route.path);
-  res.redirect(authorizeURL);
+  let state = generateRandomString(16);
+  res.cookie(stateKey, state);
+
+  res.redirect(
+    'https://accounts.spotify.com/authorize?' +
+      querystring.stringify({
+        response_type: 'code',
+        client_id: client_id,
+        scope: scope,
+        redirect_uri: redirect_uri,
+        state: state
+      })
+  );
 });
 
-app.get('/home',function(req, res){
+app.get('/callback',function(req, res){
   console.log(req.method + " " + req.route.path);
+  var code = req.query.code || null;
+  var state = req.query.state || null;
+  var storedState = req.cookies ? req.cookies[stateKey] : null;
 
-  const current_url = new url('localhost:' + process.env.PORT + req.url);
-  const code = current_url.searchParams.get('code');
+  if (state === null || state !== storedState) {
+    res.redirect('/#' +
+      querystring.stringify({ error: 'state_mismatch' }));
+  } else {
+    res.clearCookie(stateKey);
+    var authOptions = {
+      url: 'https://accounts.spotify.com/api/token',
+      form: {
+        code: code,
+        redirect_uri: redirect_uri,
+        grant_type: 'authorization_code'
+      },
+      headers: {
+        'Authorization': 'Basic ' + (new Buffer(client_id + ':' + client_secret).toString('base64'))
+      },
+      json: true
+    };
 
-  // Retrieve an access token and a refresh token
-  spotifyApi.authorizationCodeGrant(code).then(
-    function(data) {
-      // Set the access token on the API object to use it in later calls
-      spotifyApi.setAccessToken(data.body['access_token']);
-      spotifyApi.setRefreshToken(data.body['refresh_token']);
+    request.post(authOptions, function(error, response, body) {
+      if (!error && response.statusCode === 200) {
+        print_token(body);
+        // spotifyApi.setAccessToken(body.access_token);
+        results['access_token'] = body.access_token;
+        spApi = new SpApi(body.access_token);
 
-      obtain_results(data.body,
-        function(){
-          results['access_token'] = data.body['access_token'];
-          res.render('home.html', { results:JSON.stringify(results) });
-        }, function(){ res.render('error.html'); });
-    },
-    function(err) {
-      console.log('Something went wrong! Refreshing token now...');
-      spotifyApi.refreshAccessToken().then(
-        function(data) {
-          // Save the access token so that it's used in future calls
-          spotifyApi.setAccessToken(data.body['access_token']);
-          spotifyApi.setRefreshToken(data.body['refresh_token']);
-          console.log('The access token has been refreshed!');
+        obtain_results(
+          function(){
+            console.log('SUCCESS');
+            res.render('home.html', { results:JSON.stringify(results) });
+          }, function(){ res.render('error.html'); });
 
-          obtain_results(data.body,
-            function(){
-              results['access_token'] = data.body['access_token'];
-              res.render('home.html', { results:JSON.stringify(results) });
-            }, function(){ res.render('error.html'); });
-        }, function(err) {
-          console.log('Could not refresh access token', err);
-          res.render('error.html');
-        }
-      );
-    }
-  );
+        // // get USER data
+        // var options = {
+        //   url: 'https://api.spotify.com/v1/me',
+        //   headers: { 'Authorization': 'Bearer ' + body.access_token },
+        //   json: true
+        // };
+        // request.get(options, function(error, response, body) {
+        //   // console.log(body);
+        //   results['country'] = body['country'];
+        //   results['display_name'] = body['display_name'];
+        //   results['followers'] = body['followers']['total'];
+        //   results['id'] = body['id'];
+        //   if(body['images'].length>0 && 'url' in body['images'][0]){
+        //     results['profile_pic'] = body['images'][0]['url']; }
+        //   results['type'] = body['type'];
+        // });
+
+        // var access_token = body.access_token,
+        // refresh_token = body.refresh_token;
+
+        // // we can also pass the token to the browser to make requests from there
+        // res.redirect('/#' +
+        //   querystring.stringify({
+        //     access_token: access_token,
+        //     refresh_token: refresh_token
+        //   }));
+      } else {
+        res.redirect('/#' +
+          querystring.stringify({
+            error: 'invalid_token'
+          }));
+      }
+    });
+  }
+  // let code = req.query.code;
+  //
+  // // Retrieve an access token and a refresh token
+  // spotifyApi.authorizationCodeGrant(code).then(
+  //   function(data) {
+  //     // Set the access token on the API object to use it in later calls
+  //     spotifyApi.setAccessToken(data.body['access_token']);
+  //     spotifyApi.setRefreshToken(data.body['refresh_token']);
+  //
+  //     obtain_results(data.body,
+  //       function(){
+  //         results['access_token'] = data.body['access_token'];
+  //         res.render('home.html', { results:JSON.stringify(results) });
+  //       }, function(){ res.render('error.html'); });
+  //   },
+  //   function(err) {
+  //     console.log('Something went wrong! Refreshing token now...');
+  //     spotifyApi.refreshAccessToken().then(
+  //       function(data) {
+  //         // Save the access token so that it's used in future calls
+  //         spotifyApi.setAccessToken(data.body['access_token']);
+  //         spotifyApi.setRefreshToken(data.body['refresh_token']);
+  //         console.log('The access token has been refreshed!');
+  //
+  //         obtain_results(data.body,
+  //           function(){
+  //             results['access_token'] = data.body['access_token'];
+  //             res.render('home.html', { results:JSON.stringify(results) });
+  //           }, function(){ res.render('error.html'); });
+  //       }, function(err) {
+  //         console.log('Could not refresh access token', err);
+  //         res.render('error.html');
+  //       }
+  //     );
+  //   }
+  // );
 
 });
 

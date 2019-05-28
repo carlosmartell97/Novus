@@ -97,7 +97,7 @@ if(Object.keys(resultsJSON['top_genres']).length > 0){
 
 let seed_genres_available = document.getElementById('seed_genres_available');
 for(let i=0; i<Object.keys(resultsJSON['seed_genres_available']).length; i++){
-  seed_genres_available.innerHTML += '<button type="button" class="btn btn-outline-primary">'
+  seed_genres_available.innerHTML += '<button type="button" class="btn btn-outline-primary" style="margin:5px">'
     +resultsJSON['seed_genres_available'][i]
   +'</button>';
 }
