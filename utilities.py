@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+matplotlib.use('Agg')
 from wordcloud import WordCloud
 import pandas as pd
 import os
