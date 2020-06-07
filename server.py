@@ -1,7 +1,6 @@
 import matplotlib
 matplotlib.use('Agg')
 from flask import Flask, request, redirect, render_template, send_from_directory
-from dotenv import load_dotenv
 import os
 import spotipy
 from utilities import ensure_dir, wordcloud, artist_with_song
@@ -9,7 +8,6 @@ import json
 import shared
 import features
 
-load_dotenv()
 app = Flask(__name__)
 SCOPE = ("user-read-private " "user-library-read " "user-read-recently-played "
   "user-top-read " "streaming " "user-read-birthdate " "user-read-email "
