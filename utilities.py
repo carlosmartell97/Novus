@@ -108,7 +108,7 @@ def wordcloud(genres_count, display_name, id, features_name, saved_songs_feature
     plt.imshow(wordcloud, interpolation="bilinear")
     plt.axis("off")
     # plt.show()
-    figure.savefig(filename, bbox_inches='tight', transparent=True, pad_inches=0, dpi=300)
+    plt.savefig(filename, format='png', bbox_inches='tight', transparent=True, pad_inches=0, dpi=300)
 
     # print(genres_count)
     print(len(saved_songs_features))
