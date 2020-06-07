@@ -1,5 +1,5 @@
-from wordcloud import WordCloud
 import matplotlib.pyplot as plt
+from wordcloud import WordCloud
 import pandas as pd
 import os
 from math import *
