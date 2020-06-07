@@ -1,3 +1,5 @@
+import matplotlib
+matplotlib.use('Agg')
 from flask import Flask, request, redirect, render_template, send_from_directory
 from dotenv import load_dotenv
 import os
