@@ -2,7 +2,7 @@
 <html>
 <head>
     <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
-    <link rel="stylesheet" href="css/home.css">
+    <link rel="stylesheet" href="templates/css/home.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@2.8.0/dist/Chart.min.js" integrity="sha256-Uv9BNBucvCPipKQ2NS9wYpJmi8DTOEfTA/nH2aoJALw=" crossorigin="anonymous"></script>
 </head>
 <body>
@@ -106,13 +106,13 @@
     </div>
 
     <script>
-      const results = '<%= results %>'
+      const results = '{{ results }}'
         .replace(/&#34;/g, '"')
         .replace(/&#39;/g, "'");
       // console.log(results);
     </script>
-    <script src="js/home.js"></script>
+    <script src="templates/js/home.js"></script>
     <script src="https://sdk.scdn.co/spotify-player.js"></script>
-    <script src="js/playback.js"></script>
+    <script src="templates/js/playback.js"></script>
 </body>
 </html>

@@ -1,143 +1,280 @@
-from flask import Flask, request, jsonify
-from wordcloud import WordCloud
-import matplotlib.pyplot as plt
-import pandas as pd
+from flask import Flask, request, redirect, render_template, send_from_directory
+from dotenv import load_dotenv
 import os
-from math import *
-from decimal import Decimal
+import spotipy
+from utilities import ensure_dir, wordcloud, artist_with_song
+import json
+import shared
+import features
 
+load_dotenv()
 app = Flask(__name__)
+SCOPE = ("user-read-private " "user-library-read " "user-read-recently-played "
+  "user-top-read " "streaming " "user-read-birthdate " "user-read-email "
+  "user-read-playback-state ")
+CLIENT_ID=os.getenv("SPOTIFY_CLIENT_ID")
+CLIENT_SECRET=os.getenv("SPOTIFY_CLIENT_SECRET")
+REDIRECT_URI=os.getenv("SPOTIFY_REDIRECT_URI")
+SP_OAUTH = spotipy.oauth2.SpotifyOAuth(
+    client_id=CLIENT_ID,
+    client_secret=CLIENT_SECRET,
+    redirect_uri=REDIRECT_URI,
+    scope=SCOPE,
+    cache_path='.spotipy-oauth-cache')
+
+maximum_allowed_seeds = 5
 
 
-def restructure_data(features):
-	data = {}
-	for track in features:
-		for attr in track.keys():
-			if attr in data:
-				data[attr].append(track[attr])
-			else:
-				data[attr] = []
-	return data
+def reset_values():
+    shared.saved_songs_ID = []
+    shared.saved_artists_ID = []
+
+    shared.played_songs_ID = []
+    shared.played_artists_ID = []
+
+    shared.top_songs_ID = []
+    shared.top_artists_ID = []
+
+    shared.saved_songs_info = []
+    shared.played_songs_info = []
+    shared.top_songs_info = []
+
+    shared.saved_songs_features = []
+    shared.played_songs_features = []
+    shared.top_songs_features = []
+
+    shared.recommended_top_genres_tracks_album_src = []
+    shared.recommended_top_tracks_album_src = []
+
+    shared.recommended_top_genres_tracks_url = []
+    shared.recommended_top_tracks_url = []
+
+    shared.recommended_top_genres_tracks_ID = []
+    shared.recommended_top_tracks_ID = []
+
+    shared.recommended_top_genres_tracks_info = []
+    shared.recommended_top_tracks_info = []
+
+    shared.recommended_top_genres_tracks_features = []
+    shared.recommended_top_tracks_features = []
+
+    shared.genres_count = {}
 
 
-def ensure_dir(file_path):
-	directory = os.path.dirname(file_path)
-	if not os.path.exists(directory):
-		os.makedirs(directory)
+@app.route('/')
+def login():
+    if request.args.get("code"):
+        token_info = SP_OAUTH.get_access_token(request.args['code'])
+        access_token = token_info['access_token']
+        if access_token:
+            reset_values()
+            return obtain_results(access_token)
+    else:
+        return htmlForLoginButton()
 
 
-# Function distance between two points and calculate distance value to given root value(p is root value)
-p = 1
-normalize_coefficient = 100
+@app.route("/templates/<path:path>")
+def serveStatic(path):
+    return send_from_directory('templates', path, cache_timeout=-1)
 
 
-def p_root(value, root):
-	root_value = 1 / float(root)
-	return round(Decimal(value) ** Decimal(root_value), p)
+def obtain_results(access_token):
+    sp = spotipy.Spotify(access_token)
+    results = {}
+
+    results = get_user_details(results, sp)
+    results = get_saved_songs(results, sp)
+    results = get_played_songs(results, sp)
+    results = get_top_songs(results, sp)
+    results = features.get_features_saved_songs(results, sp)
+    results = features.get_features_played_songs(results, sp)
+    results = features.get_features_top_songs(results, sp)
+    update_saved_songs_genres(sp)
+    update_played_songs_genres(sp)
+    update_top_songs_genres(sp)
+    results, top_genres_available = get_available_seeds(results, sp)
+    print('top genres available: ' + str(top_genres_available))
+    get_recommendations_top_genres(sp, top_genres_available)
+    get_recommendations_top_songs(sp)
+    results = features.get_features_recommended_top_genres(results, sp)
+    results = features.get_features_recommended_top_songs(results, sp)
+    results = get_word_cloud(results)
+
+    # print('')
+    # print('')
+    # print('')
+    # print('results:')
+    # print(results)
+    return render_template('home.html', results=json.dumps(results))
 
 
-def minkowski_distance(x, y, p_value):
-	return (p_root(sum(pow(abs(a-b), p_value) for a, b in zip(x, y)), p_value))
+def get_user_details(results, sp):
+    user_data = sp.current_user()
+    results['user'] = {}
+    results['user']['country'] = user_data['country']
+    results['user']['display_name'] = user_data['display_name']
+    results['user']['followers'] = user_data['followers']['total']
+    results['user']['id'] = user_data['id']
+    results['user']['type'] = user_data['type']
+    user_images = user_data['images']
+    if(len(user_images)>0 and 'url' in user_images[0]):
+        results['user']['profile_pic'] = user_images[0]['url']
+
+    return results
 
 
-def recommend(features_name, user_features, recommended_features):
-	ignore_columns = ['song_info', 'track_id']
-
-	user_features = user_features.fillna(user_features.mean())
-	user_features = user_features.drop(ignore_columns, axis=1)
-
-	user_features_average = user_features.mean()
-
-	ignored_recommended_features = {}
-	recommended_features = recommended_features.fillna(recommended_features.mean())
-	ignore_columns.extend(('album_image_src', 'track_url'))
-	for column_name in ignore_columns:
-		ignored_recommended_features[column_name] = recommended_features[column_name]
-	recommended_features = recommended_features.drop(ignore_columns, axis=1)
-
-	# Add column of similarity with the user_features mean.
-	recommended_features["similarity_index"] = 0
-
-	for index, row in recommended_features.iterrows():
-		similarity_index = minkowski_distance(user_features_average, row.values, p) / normalize_coefficient
-		recommended_features.loc[index, "similarity_index"] = similarity_index
-
-	for column_name in ignore_columns:
-		recommended_features[column_name] = ignored_recommended_features[column_name]
-
-	recommendations_sorted = recommended_features.sort_values('similarity_index', ascending=False)
-	top_recommendations = recommendations_sorted.drop_duplicates()[:30]
-	recommended_features_average = top_recommendations.drop(['similarity_index'], axis=1).mean()
-	recommendations_clean = top_recommendations.drop(features_name, axis=1)
-	# print(recommendations_clean)
-
-	features_average_labels = list(user_features_average.index)
-	user_features_average_values = list(user_features_average.values)
-	recommended_features_average_values = list(recommended_features_average.values)
-
-	top_recommendations_features_list = top_recommendations[features_name].values.tolist()
-	top_recommendations_with_features = recommendations_clean.to_dict('records')
-	for i, recommendation in enumerate(top_recommendations_with_features):
-		recommendation['features'] = top_recommendations_features_list[i]
-
-	return top_recommendations_with_features, features_average_labels, user_features_average_values, recommended_features_average_values
+def get_saved_songs(results, sp):
+    saved_songs = sp.current_user_saved_tracks(limit=50)
+    results['total_saved_tracks'] = saved_songs['total']
+    results['saved_songs'] = []
+    for i,track in enumerate(saved_songs['items']):
+        track = saved_songs['items'][i]['track']
+        artist = track['artists'][0]
+        results['saved_songs'].append({
+            'song_info': artist_with_song(artist['name'], track['name']),
+            'track_id': track['id'],
+            'album_image_src': track['album']['images'][0]['url'],
+            'track_url': track['external_urls']['spotify'],
+            'features': []
+        })
+        shared.saved_songs_ID.append(track['id'])
+        shared.saved_artists_ID.append(artist['id'])
+        shared.saved_songs_info.append(artist_with_song(artist['name'], track['name']))
+    return results
 
 
-@app.route('/wordcloud_and_recommend', methods=['POST'])
-def wordcloud():
-	try:
-		data = request.get_json()
-		genres_count = data['genres_count']
-		display_name = data['display_name']
-		id = data['id']
-		features_name = data['features_name']
-		saved_songs_features = data['saved_songs_features']
-		played_songs_features = data['played_songs_features']
-		top_songs_features = data['top_songs_features']
-		recommended_top_genres_tracks_features = data['recommended_top_genres_tracks_features']
-		recommended_top_tracks_features = data['recommended_top_tracks_features']
-		filename = "img/wordcloud/%s_%s_word_cloud.png" % (display_name, id)
-		print('generating WORD CLOUD and RECOMMENDATIONS for %s (%s)...' % (display_name, id))
+def get_played_songs(results, sp):
+    played_songs = sp.current_user_recently_played(limit=50)
+    results['played_songs'] = []
+    for i,track in enumerate(played_songs['items']):
+        track = played_songs['items'][i]['track']
+        artist = track['artists'][0]
+        results['played_songs'].append({
+            'song_info': artist_with_song(artist['name'], track['name']),
+            'track_id': track['id'],
+            'album_image_src': track['album']['images'][0]['url'],
+            'track_url': track['external_urls']['spotify'],
+            'features': []
+        })
+        shared.played_songs_ID.append(track['id'])
+        shared.played_artists_ID.append(artist['id'])
+        shared.played_songs_info.append(artist_with_song(artist['name'], track['name']))
+    return results
 
-		wordcloud = WordCloud(background_color='white', max_font_size=40, collocations=False).generate_from_frequencies(genres_count)
-		figure = plt.figure(dpi=300)
-		plt.imshow(wordcloud, interpolation="bilinear")
-		plt.axis("off")
-		# plt.show()
-		figure.savefig("views/" + filename, bbox_inches='tight', transparent=True, pad_inches=0, dpi=300)
 
-		# print(genres_count)
-		print(len(saved_songs_features))
-		print(len(played_songs_features))
-		print(len(top_songs_features))
-		print(len(recommended_top_genres_tracks_features))
-		print(len(recommended_top_tracks_features))
+def get_top_songs(results, sp):
+    top_songs = sp.current_user_top_tracks(limit=50)
+    results['top_songs'] = []
+    for i,track in enumerate(top_songs['items']):
+        track = top_songs['items'][i]
+        artist = track['artists'][0]
+        results['top_songs'].append({
+            'song_info': artist_with_song(artist['name'], track['name']),
+            'track_id': track['id'],
+            'album_image_src': track['album']['images'][0]['url'],
+            'track_url': track['external_urls']['spotify'],
+            'features': []
+        })
+        shared.top_songs_ID.append(track['id'])
+        shared.top_artists_ID.append(artist['id'])
+        shared.top_songs_info.append(artist_with_song(artist['name'], track['name']))
+    return results
 
-		data_user = restructure_data(saved_songs_features + played_songs_features + top_songs_features)
-		user_features = pd.DataFrame(data=data_user)
-		print(user_features.shape)
-		# df_user.to_csv('csv/%s_%s_user_features.csv' % (display_name, id), encoding='utf-8')
-		data_recommended = restructure_data(recommended_top_genres_tracks_features + recommended_top_tracks_features)
-		recommended_features = pd.DataFrame(data=data_recommended)
-		print(recommended_features.shape)
-		# df_recommended.to_csv('csv/%s_%s_recommended_features.csv' % (display_name, id), encoding='utf-8')
 
-		top_recommendations, radar_labels, radar_user_values, radar_recommended_values = recommend(features_name, user_features, recommended_features)
-		response = {
-			'word_cloud_src': filename,
-			'top_recommendations': top_recommendations,
-			'radar_labels': radar_labels,
-			'radar_user_values': radar_user_values,
-			'radar_recommended_values': radar_recommended_values,
-		}
-		return jsonify(response)
-	except Exception as e:
-		print(e)
-		return None
+def update_saved_songs_genres(sp):
+    saved_songs_artists = sp.artists(shared.saved_artists_ID)
+    update_genres_count(saved_songs_artists['artists'])
+
+
+def update_played_songs_genres(sp):
+    played_songs_artists = sp.artists(shared.played_artists_ID)
+    update_genres_count(played_songs_artists['artists'])
+
+
+def update_top_songs_genres(sp):
+    top_songs_artists = sp.artists(shared.top_artists_ID)
+    update_genres_count(top_songs_artists['artists'])
+
+
+def get_available_seeds(results, sp):
+    available_seeds = sp.recommendation_genre_seeds()['genres']
+    global maximum_allowed_seeds
+    genres_count_sorted = sorted([(value,key) for (key,value) in shared.genres_count.items()], reverse=True)
+    genres_count_sorted_list = list(map((lambda x: x[1]), genres_count_sorted))
+    results['top_genres'] = genres_count_sorted_list
+
+    top_genres_available = []
+    results['seed_genres_available'] = []
+    for top_genre in genres_count_sorted_list:
+        if top_genre in available_seeds:
+            results['seed_genres_available'].append(top_genre)
+            if len(top_genres_available) < maximum_allowed_seeds:
+                top_genres_available.append(top_genre)
+    for top_genre in genres_count_sorted_list:
+        if top_genre not in results['seed_genres_available']:
+            results['seed_genres_available'].append(top_genre)
+
+    return results, top_genres_available
+
+
+def get_recommendations_top_genres(sp, top_genres_available):
+    recommendations = sp.recommendations(seed_genres=top_genres_available, limit=50)['tracks']
+    for track in recommendations:
+        shared.recommended_top_genres_tracks_ID.append(track['id'])
+        shared.recommended_top_genres_tracks_info.append(artist_with_song(track['artists'][0]['name'], track['name']))
+        shared.recommended_top_genres_tracks_album_src.append(track['album']['images'][0]['url'])
+        shared.recommended_top_genres_tracks_url.append(track['external_urls']['spotify'])
+
+
+def get_recommendations_top_songs(sp):
+    recommendations = sp.recommendations(seed_tracks=shared.top_songs_ID[:maximum_allowed_seeds], limit=50)['tracks']
+    for track in recommendations:
+        shared.recommended_top_tracks_ID.append(track['id'])
+        shared.recommended_top_tracks_info.append(artist_with_song(track['artists'][0]['name'], track['name']))
+        shared.recommended_top_tracks_album_src.append(track['album']['images'][0]['url'])
+        shared.recommended_top_tracks_url.append(track['external_urls']['spotify'])
+
+
+def get_connected_devices(results, sp):
+    devices = sp.devices()['devices']
+    for device in devices:
+        if device['is_active']:
+            results['device_id'] = device['id']
+    return results
+
+
+def get_word_cloud(results):
+    word_cloud_src, recommendations, radar_labels, radar_user_values, radar_recommended_values = wordcloud(
+        shared.genres_count,
+        results['user']['display_name'], results['user']['id'], shared.features_value_range.keys(),
+        shared.saved_songs_features, shared.played_songs_features, shared.top_songs_features,
+        shared.recommended_top_genres_tracks_features, shared.recommended_top_tracks_features)
+    results['word_cloud_src'] = word_cloud_src
+    results['recommended_songs'] = recommendations
+    results['radar_labels'] = radar_labels
+    results['radar_user_values'] = radar_user_values
+    results['radar_recommended_values'] = radar_recommended_values
+    return results
+
+
+def update_genres_count(artists):
+    for artist in artists:
+        genres = artist['genres']
+        for genre in genres:
+            if genre in shared.genres_count:
+                shared.genres_count[genre] += 1
+            else:
+                shared.genres_count[genre] = 1
+
+
+def htmlForLoginButton():
+    htmlLoginButton = '<input type="button" onclick="window.location.replace(\'{0}\');" value="Redirect">'.format(SP_OAUTH.get_authorize_url())
+    return htmlLoginButton
 
 
 if __name__ == "__main__":
-	ensure_dir('csv/')
-	ensure_dir('views/img/wordcloud/')
-	print("starting...")
-	app.run(port=8080)
+    print("starting...")
+    ensure_dir('csv/')
+    ensure_dir('views/img/wordcloud/')
+    port = int(os.getenv("PORT"))
+    app.run(port=port)

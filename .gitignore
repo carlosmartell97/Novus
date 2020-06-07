@@ -1,5 +1,5 @@
-node_modules/
-package-lock.json
 .env
+.spotipy-oauth-cache
+__pycache__/
 *_word_cloud.png
 csv/

@@ -52,16 +52,16 @@ const radar_labels = resultsJSON['radar_labels'];
 const radar_user_values = resultsJSON['radar_user_values'];
 const radar_recommended_values = resultsJSON['radar_recommended_values'];
 
-let profile_pic_src = '/img/default_profile_pic.jpeg';
-if('profile_pic' in resultsJSON){
-  profile_pic_src = resultsJSON['profile_pic'].replace(/amp;/g, ''); }
+let profile_pic_src = 'templates/img/default_profile_pic.jpeg';
+if('profile_pic' in resultsJSON['user']){
+  profile_pic_src = resultsJSON['user']['profile_pic'].replace(/amp;/g, ''); }
 document.getElementById('profile_pic').src = profile_pic_src;
-document.getElementById('display_name').innerHTML = resultsJSON['display_name'];
-document.getElementById('id').innerHTML = resultsJSON['id'];
-document.getElementById('followers').innerHTML = resultsJSON['followers'];
-document.getElementById('total_saved_songs').innerHTML = resultsJSON['total_saved_songs'];
-document.getElementById('country').innerHTML = resultsJSON['country'];
-document.getElementById('type').innerHTML = resultsJSON['type'];
+document.getElementById('display_name').innerHTML = resultsJSON['user']['display_name'];
+document.getElementById('id').innerHTML = resultsJSON['user']['id'];
+document.getElementById('followers').innerHTML = resultsJSON['user']['followers'];
+document.getElementById('total_saved_songs').innerHTML = resultsJSON['user']['total_saved_songs'];
+document.getElementById('country').innerHTML = resultsJSON['user']['country'];
+document.getElementById('type').innerHTML = resultsJSON['user']['type'];
 
 const song_HTML_content =
   `<a id={0} style="text-decoration:none; color:inherit;">
@@ -97,7 +97,7 @@ if(Object.keys(resultsJSON['top_genres']).length > 0){
 
 let seed_genres_available = document.getElementById('seed_genres_available');
 for(let i=0; i<Object.keys(resultsJSON['seed_genres_available']).length; i++){
-  seed_genres_available.innerHTML += '<button type="button" class="btn btn-outline-primary">'
+  seed_genres_available.innerHTML += '<button type="button" class="btn btn-outline-primary" style="margin:5px">'
     +resultsJSON['seed_genres_available'][i]
   +'</button>';
 }
