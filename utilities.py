@@ -18,11 +18,6 @@ def restructure_data(features):
 	return data
 
 
-def ensure_dir(directory):
-	if not os.path.exists(directory):
-		os.makedirs(directory)
-
-
 # Function distance between two points and calculate distance value to given root value (p is root value)
 p = 1
 normalize_coefficient = 100

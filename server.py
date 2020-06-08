@@ -274,7 +274,5 @@ def htmlForLoginButton():
 
 if __name__ == "__main__":
     print("starting...")
-    ensure_dir('csv/')
-    ensure_dir('templates/img/wordcloud/')
     port = int(os.getenv("PORT"))
     app.run(port=port)

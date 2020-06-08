@@ -2,4 +2,4 @@ config.sh
 .spotipy-oauth-cache
 __pycache__/
 *_word_cloud.png
-csv/
+*.csv
