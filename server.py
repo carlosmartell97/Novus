@@ -3,7 +3,7 @@ matplotlib.use('Agg')
 from flask import Flask, request, redirect, render_template, send_from_directory
 import os
 import spotipy
-from utilities import ensure_dir, wordcloud, artist_with_song
+from utilities import wordcloud, artist_with_song
 import json
 import shared
 import features
