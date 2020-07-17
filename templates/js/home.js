@@ -59,7 +59,7 @@ document.getElementById('profile_pic').src = profile_pic_src;
 document.getElementById('display_name').innerHTML = resultsJSON['user']['display_name'];
 document.getElementById('id').innerHTML = resultsJSON['user']['id'];
 document.getElementById('followers').innerHTML = resultsJSON['user']['followers'];
-document.getElementById('total_saved_songs').innerHTML = resultsJSON['user']['total_saved_songs'];
+document.getElementById('total_saved_songs').innerHTML = resultsJSON['total_saved_tracks'];
 document.getElementById('country').innerHTML = resultsJSON['user']['country'];
 document.getElementById('type').innerHTML = resultsJSON['user']['type'];
 
